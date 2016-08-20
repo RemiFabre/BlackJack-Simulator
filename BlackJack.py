@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from importer.StrategyImporter import StrategyImporter
 
 
-GAMES = 2000
+GAMES = 200
 # I'd rather consider a game is a full number of shoes played (the last hand might be shuffled in between though)
 NB_SHOES_PER_GAME = 1
 #ROUNDS_PER_GAME = 2000
@@ -21,12 +21,17 @@ DECK_SIZE = 52.0
 CARDS = {"Ace": 11, "Two": 2, "Three": 3, "Four": 4, "Five": 5, "Six": 6, "Seven": 7, "Eight": 8, "Nine": 9, "Ten": 10, "Jack": 10, "Queen": 10, "King": 10}
 BASIC_OMEGA_II = {"Ace": 0, "Two": 1, "Three": 1, "Four": 2, "Five": 2, "Six": 2, "Seven": 1, "Eight": 0, "Nine": -1, "Ten": -2, "Jack": -2, "Queen": -2, "King": -2}
 COUNT = {"Ace": SHOE_SIZE*4, "Two": SHOE_SIZE*4, "Three": SHOE_SIZE*4, "Four": SHOE_SIZE*4, "Five": SHOE_SIZE*4, "Six": SHOE_SIZE*4, "Seven": SHOE_SIZE*4, "Eight": SHOE_SIZE*4, "Nine": SHOE_SIZE*4, "Ten": SHOE_SIZE*4, "Jack": SHOE_SIZE*4, "Queen": SHOE_SIZE*4, "King": SHOE_SIZE*4}
+nb_cards = DECK_SIZE*SHOE_SIZE
 
 HARD_STRATEGY = {}
 SOFT_STRATEGY = {}
 PAIR_STRATEGY = {}
 
 
+def get_statistical_card_from_count(count, nb_cards) :
+    for c in count :
+        count[c] = count[c]/float(nb_cards)
+    return count
 
 class Card(object):
     """
@@ -51,7 +56,7 @@ class Shoe(object):
         self.count_history = []
         self.decks = decks
         self.cards = self.init_cards()
-        init_count()
+        self.init_count()
 
     def __str__(self):
         s = ""
@@ -75,6 +80,8 @@ class Shoe(object):
         return cards
 
     def init_count(self):
+        global COUNT
+        nb_cards = DECK_SIZE*SHOE_SIZE
         for c in COUNT :
             COUNT[c] = 4*SHOE_SIZE
 
@@ -83,13 +90,18 @@ class Shoe(object):
         Returns:    The next card off the shoe. If the shoe penetration is reached,
                     the shoe gets reshuffled.
         """
+        global COUNT, nb_cards
         if self.shoe_penetration() < SHOE_PENETRATION:
             self.reshuffle = True
         card = self.cards.pop()
         if (COUNT[card.name] <= 0) :
             print("Either a cheater or a bug !")
             sys.exit()
+            if (nb_cards <= 0) :
+                print("No more cards to deal, huge bug somewhere")
+                sys.exit()
         COUNT[card.name] = COUNT[card.name] - 1
+        nb_cards = nb_cards - 1
         self.do_count(card)
         return card
 
@@ -323,41 +335,102 @@ class Dealer(object):
         self.hand.add_card(c)
         # print "Dealer hitted: %s" %c
 
-    ''' Returns an array of 6 numbers representing the probability that the final score of the dealer is
+    ''' Returns an array of 7 numbers representing the probability that the final score of the dealer is
         [17, 18, 19, 20, 21, Busted] '''
     #TODO Differentiate 21 and BJ
-    #TODO make an actual tree, this is false AF
-    def get_probabilities() :
+    def get_probabilities(self) :
         start_value = self.hand.value
-        # We'll draw 5 cards no matter what an count how often we got 17, 18, 19, 20, 21, Busted
+        # We'll draw 5 cards no matter what and count how often we got 17, 18, 19, 20, 21, Busted
+        tree = Tree([Leave(start_value, 1.0)])
+        stat_card = get_statistical_card_from_count(COUNT, nb_cards)
+        print("stat_card : ", stat_card)
+        print("1 card : \n", tree)
+        proba_of_done = tree.add_a_statistical_card_dealer(stat_card, 1.0)
+        print("proba_of_done : ", proba_of_done)
+        print("2 card : \n", tree)
+        proba_of_done = tree.add_a_statistical_card_dealer(stat_card, 1.0 - proba_of_done)
+        print("proba_of_done : ", proba_of_done)
+        print("3 card : \n", tree)
+        proba_of_done = tree.add_a_statistical_card_dealer(stat_card, 1.0 - proba_of_done)
+        print("proba_of_done : ", proba_of_done)
+        print("4 card : \n", tree)
+        proba_of_done = tree.add_a_statistical_card_dealer(stat_card, 1.0 - proba_of_done)
+        print("proba_of_done : ", proba_of_done)
+        print("5 card : \n", tree)
+        proba_of_done = tree.add_a_statistical_card_dealer(stat_card, 1.0 - proba_of_done)
 
+
+class Leave(object):
+    """
+    Possible value, with a probability
+    """
+    def __init__(self, value, proba):
+        self.over = False
+        self.value = value
+        self.proba = proba
+
+    def __str__(self):
+        s = "[" + str(self.value) + ", " + "{0:.2f}".format(100*self.proba) + "]"
+        if (self.over) :
+            s += "o"
+        return s
+
+#TODO A tree has a fixed number of leaves starting from line 2 (about 21 + BJ + busted). A leave has a status "finished"
 class Tree(object):
     """
     A tree that opens with a statistical card and changes as a new
-    statistical card is added. In this context, a statistical card is a list of possible values, each with a probability.
+    statistical card is added. In this context, a statistical card is a list of leaves.
     e.g : [2 : 0.05, 3 : 0.1, ..., 22 : 0.1]
     Any value above 21 will be truncated to 22, which means 'Busted'.
     """
-    #TODO to test
     def __init__(self, start=[]):
-        self.tree = []
-        self.tree.append(start)
+        self.tree = start
 
-    def add_a_statistical_card(self, stat_card):
+    def __str__(self):
+        s = ""
+        for l in self.tree:
+            s += str(l) + "  "
+        s += "\n"
+        return s
+
+    def leaves_have_value(self, leaves, value) :
+        index = -1
+        for l in leaves :
+            index = index + 1
+            if (l.value == value) :
+                return index
+        return -1
+
+        #TODO Handle Aces !
+        #TODO The statistical card should change as the carts are drawn ...
+    def add_a_statistical_card_dealer(self, stat_card, proba_of_not_done):
         # New set of leaves in the tree
         leaves = []
-        for p in self.tree[-1] :
+        # Probability of being done with this card
+        done_proba = 0
+        for leave in self.tree :
             for v in stat_card :
-                new_value = v + p
-                proba = self.tree[-1][p]*stat_card[v]
+                if (leave.over) :
+                    new_value = leave.value
+                    proba = leave.proba
+                else :
+                    new_value = int(CARDS[v] + leave.value)
+                    proba = leave.proba*stat_card[v]
                 if (new_value > 21) :
                     # All busted values are 22
                     new_value = 22
-                if (new_value in leaves) :
-                    leaves[new_value] = leaves[new_value] + proba
+                if (new_value >= 17) :
+                    leave.over = True
+                    done_proba = done_proba + proba
+                index = self.leaves_have_value(leaves, new_value)
+                if (index == -1) :
+                    # The list of leaves doesn't have this value
+                    leaves.append(Leave(new_value, proba))
                 else :
-                    leaves[new_value] = proba
-
+                    leaves[index].proba = leaves[index].proba + proba_of_not_done*proba
+        leaves = sorted(leaves, key=lambda leave: leave.value)
+        self.tree = leaves
+        return done_proba
 
 class Game(object):
     """
@@ -426,6 +499,7 @@ class Game(object):
         self.dealer.set_hand(dealer_hand)
         # print "Dealer Hand: %s" % self.dealer.hand
         # print "Player Hand: %s\n" % self.player.hands[0]
+        self.dealer.get_probabilities()
 
         self.player.play(self.shoe)
         self.dealer.play(self.shoe)
