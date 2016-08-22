@@ -5,6 +5,7 @@ import numpy as np
 import scipy.stats as stats
 import pylab as pl
 import matplotlib.pyplot as plt
+import copy
 
 from importer.StrategyImporter import StrategyImporter
 
@@ -16,6 +17,8 @@ NB_SHOES_PER_GAME = 1
 SHOE_SIZE = 6
 SHOE_PENETRATION = 0.25
 BET_SPREAD = 20.0
+BLACKJACK = "BJ"
+BUSTED = "BU"
 
 DECK_SIZE = 52.0
 CARDS = {"Ace": 11, "Two": 2, "Three": 3, "Four": 4, "Five": 5, "Six": 6, "Seven": 7, "Eight": 8, "Nine": 9, "Ten": 10, "Jack": 10, "Queen": 10, "King": 10}
@@ -28,10 +31,12 @@ SOFT_STRATEGY = {}
 PAIR_STRATEGY = {}
 
 
-def get_statistical_card_from_count(count, nb_cards) :
-    for c in count :
-        count[c] = count[c]/float(nb_cards)
-    return count
+def is_number(x) :
+    try:
+        x += 1
+        return True
+    except TypeError:
+        return False
 
 class Card(object):
     """
@@ -80,7 +85,7 @@ class Shoe(object):
         return cards
 
     def init_count(self):
-        global COUNT
+        global COUNT, nb_cards
         nb_cards = DECK_SIZE*SHOE_SIZE
         for c in COUNT :
             COUNT[c] = 4*SHOE_SIZE
@@ -336,101 +341,113 @@ class Dealer(object):
         # print "Dealer hitted: %s" %c
 
     ''' Returns an array of 7 numbers representing the probability that the final score of the dealer is
-        [17, 18, 19, 20, 21, Busted] '''
+        [17, 18, 19, 20, 21, BJ, Busted] '''
     #TODO Differentiate 21 and BJ
     def get_probabilities(self) :
-        start_value = self.hand.value
-        # We'll draw 5 cards no matter what and count how often we got 17, 18, 19, 20, 21, Busted
-        tree = Tree([Leave(start_value, 1.0)])
-        stat_card = get_statistical_card_from_count(COUNT, nb_cards)
-        print("stat_card : ", stat_card)
-        print("1 card : \n", tree)
-        proba_of_done = tree.add_a_statistical_card_dealer(stat_card, 1.0)
-        print("proba_of_done : ", proba_of_done)
-        print("2 card : \n", tree)
-        proba_of_done = tree.add_a_statistical_card_dealer(stat_card, 1.0 - proba_of_done)
-        print("proba_of_done : ", proba_of_done)
-        print("3 card : \n", tree)
-        proba_of_done = tree.add_a_statistical_card_dealer(stat_card, 1.0 - proba_of_done)
-        print("proba_of_done : ", proba_of_done)
-        print("4 card : \n", tree)
-        proba_of_done = tree.add_a_statistical_card_dealer(stat_card, 1.0 - proba_of_done)
-        print("proba_of_done : ", proba_of_done)
-        print("5 card : \n", tree)
-        proba_of_done = tree.add_a_statistical_card_dealer(stat_card, 1.0 - proba_of_done)
+        print()
+        print("*** START")
+        print("COUNT = ", COUNT)
+        print("nb_cards = ", nb_cards)
+        start_value = int(self.hand.value)
+        # We'll draw 5 cards no matter what and count how often we got 17, 18, 19, 20, 21, BJ, Busted
+        stat_card = StatCard(COUNT, nb_cards)
+        new_count, new_nb_cards = stat_card.get_new_count()
+        print ("Stat_card = ", stat_card)
 
+        card_values_11 = stat_card.get_card_values(ace=11)
+        card_values_1 = stat_card.get_card_values(ace=1)
 
-class Leave(object):
-    """
-    Possible value, with a probability
-    """
-    def __init__(self, value, proba):
-        self.over = False
-        self.value = value
-        self.proba = proba
+        print ("start_value = ", start_value)
+        stat_score = StatScore(start_value)
+        print ("Stat_score = ", stat_score)
+        # TODO Since Aces can be either 1 or 11, there are as many different hand values than the number of aces in the hand.
 
-    def __str__(self):
-        s = "[" + str(self.value) + ", " + "{0:.2f}".format(100*self.proba) + "]"
-        if (self.over) :
-            s += "o"
-        return s
+        print("** STOP")
+        print()
+        input("Continue ?")
+"""
+        stat_score_11 = 
+        stat_score_1 = 
+        print ("Stat_score_11 = ", stat_score_11)
+        print ("Stat_score_1 = ", stat_score_1)
 
-#TODO A tree has a fixed number of leaves starting from line 2 (about 21 + BJ + busted). A leave has a status "finished"
-class Tree(object):
+stat_card = StatCard(new_count, new_nb_cards)
+"""
+
+class StatCard(object) :
     """
-    A tree that opens with a statistical card and changes as a new
-    statistical card is added. In this context, a statistical card is a list of leaves.
-    e.g : [2 : 0.05, 3 : 0.1, ..., 22 : 0.1]
-    Any value above 21 will be truncated to 22, which means 'Busted'.
+    Represents the probability of a card among ["Ace", "Two", ..., "King"].
     """
-    def __init__(self, start=[]):
-        self.tree = start
+    # Creates a StatCard from the (ideal) count of the remaining cards.
+    def __init__(self, count, nb_cards) :
+        self.new_count = copy.deepcopy(count)
+        self.new_nb_cards = nb_cards -1
+        self.values = {}
+        for c in count :
+            self.values[c] = count[c]/float(nb_cards)
+            # After picking a card, the likelihood of each value changes. new_count is updated to take that into account by
+            # subtracting "portions" of cards, proportionally to the card's likeliness. The sum of the portions should be 1.0
+            self.new_count[c] = self.new_count[c] - self.values[c]
 
     def __str__(self):
         s = ""
-        for l in self.tree:
-            s += str(l) + "  "
-        s += "\n"
+        for v in self.values :
+            s = s + "[" + v + ": " + "{0:.1f}".format(100*self.values[v]) + "], "
         return s
 
-    def leaves_have_value(self, leaves, value) :
-        index = -1
-        for l in leaves :
-            index = index + 1
-            if (l.value == value) :
-                return index
-        return -1
+    def get_new_count(self) :
+        return self.new_count, self.new_nb_cards
 
-        #TODO Handle Aces !
-        #TODO The statistical card should change as the carts are drawn ...
-    def add_a_statistical_card_dealer(self, stat_card, proba_of_not_done):
-        # New set of leaves in the tree
-        leaves = []
-        # Probability of being done with this card
-        done_proba = 0
-        for leave in self.tree :
-            for v in stat_card :
-                if (leave.over) :
-                    new_value = leave.value
-                    proba = leave.proba
-                else :
-                    new_value = int(CARDS[v] + leave.value)
-                    proba = leave.proba*stat_card[v]
-                if (new_value > 21) :
-                    # All busted values are 22
-                    new_value = 22
-                if (new_value >= 17) :
-                    leave.over = True
-                    done_proba = done_proba + proba
-                index = self.leaves_have_value(leaves, new_value)
-                if (index == -1) :
-                    # The list of leaves doesn't have this value
-                    leaves.append(Leave(new_value, proba))
-                else :
-                    leaves[index].proba = leaves[index].proba + proba_of_not_done*proba
-        leaves = sorted(leaves, key=lambda leave: leave.value)
-        self.tree = leaves
-        return done_proba
+    """
+    From ({"Two":0.02, "Three":0.02, ...}) to ({2:0.02, 3:0.02, ...})
+    All heads are 10, ace value is specified as a function input.
+    """
+    def get_card_values(self, ace) :
+        if (ace != 1 and ace != 11) :
+            print ("get_card_values needs an ace value that's either 1 or 11")
+        result = {10:0.0}
+        for c in self.values :
+            if (c == "Ace") :
+                result[ace] = self.values[c]
+            elif (CARDS[c] == 10) :
+                # Several cards are worth 10
+                result[10] = result[10] + self.values[c]
+            else :
+                result[CARDS[c]] = self.values[c]
+        return result
+
+class StatScore(object) :
+    """
+    Represents the probability of a score among [2, 3, ..., 21, BlackJack, Busted].
+    """
+    def __init__(self, start_value):
+        self.values = {}
+        if (isinstance(start_value, dict)) :
+            if (len(start_value) != 22) :
+                print("A StatCard has always 22 values, wrong initializer")
+                sys.exit()
+            # We're already dealing with a dictionary
+            self.values = start_value
+        else :
+            for i in range(21) :
+                self.values[i+1] = 0.0
+
+            if (isinstance(start_value, int)) :
+                self.values[start_value] = 1.0
+            elif (start_value == BLACKJACK) :
+                self.values[BLACKJACK] = 1.0
+            elif (start_value == BUSTED) :
+                self.values[BUSTED] = 1.0
+            else :
+                print("Wrong initializer in StatScore : '", start_value, "'")
+                sys.exit()
+
+    def __str__(self):
+        s = ""
+        for v in self.values :
+            s = s + "[" + str(v) + ": " + "{0:.1f}".format(100*self.values[v]) + "], "
+        return s
+
 
 class Game(object):
     """
