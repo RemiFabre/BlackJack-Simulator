@@ -353,14 +353,12 @@ class Dealer(object):
 
         print ("start_value = ", start_value)
         # The dealer will stop if his hand's value is any of stop_scores
-        stat_score = StatScore(start_value, nb_cards_in_hand=1,stop_scores=[17, 18, 19, 20, 21, BLACKJACK, BUSTED])
+        stat_score = StatScore(start_value, stop_scores=[17, 18, 19, 20, 21, BLACKJACK, BUSTED])
         print ("Stat_score (1 card) = ", stat_score)
         print()
         new_count = COUNT
         new_nb_cards = nb_cards
 
-        # TODO Since Aces can be either 1 or 11, there are as many different hand values than the number of aces in the hand.
-        # For now, aces can only be worth 11
         for i in range(4) :
             print("Picking up a card from the deck (", i+1, ") ...")
             stat_card = StatCard(new_count, new_nb_cards)
@@ -436,39 +434,51 @@ class StatScore(object) :
     """
     Represents the probability of a score among [2, 3, ..., 21, BlackJack, Busted].
     """
-    def __init__(self, start_value, nb_cards_in_hand, stop_scores=[21, BLACKJACK, BUSTED]):
+    def __init__(self, start_value, stop_scores=[21, BLACKJACK, BUSTED]):
         self.values = {}
-        self.nb_cards_in_hand = nb_cards_in_hand
+        self.nb_cards_in_hand = 1
         self.stop_scores = stop_scores
         self.remaining_proba = 1.0
+        # aces_repartition[i][j] is the probability that the score i is made with j+1 aces exactly. e.g aces_repartition[4][1] is the probability
+        # that the score 4 was reached with a hand like 2-A-A (but not 3-A). This is useful when calculating the busted probability
+        self.aces_repartition = {}
+
+        for i in range(21) :
+            self.aces_repartition[i+1] = [0.0]
+        self.aces_repartition[BLACKJACK] = [0.0]
+        self.aces_repartition[BUSTED] = [0.0]
+        if (start_value == 11) :
+            # The start value is an ace
+            self.aces_repartition[11] = [1.0]
+        """
         if (isinstance(start_value, dict)) :
             if (len(start_value) != 22) :
                 print("A StatCard has always 22 values, wrong initializer")
                 sys.exit()
             # We're already dealing with a dictionary
             self.values = start_value
-        else :
-            # Initialization
-            for i in range(21) :
-                self.values[i+1] = 0.0
-            self.values[BLACKJACK] = 0.0
-            self.values[BUSTED] = 0.0
+        """
+        # Initialization
+        for i in range(21) :
+            self.values[i+1] = 0.0
+        self.values[BLACKJACK] = 0.0
+        self.values[BUSTED] = 0.0
 
-            # Setting to 100% the starting score
-            if (start_value in self.stop_scores) :
-                # No point in calculating anything, the dealer won't draw another card
-                self.remaining_proba = 0.0
-            if (start_value > 21) :
-                start_value = BUSTED
-            if (isinstance(start_value, int)) :
-                self.values[start_value] = 1.0
-            elif (start_value == BLACKJACK) :
-                self.values[BLACKJACK] = 1.0
-            elif (start_value == BUSTED) :
-                self.values[BUSTED] = 1.0
-            else :
-                print("Wrong initializer in StatScore : '", start_value, "'")
-                sys.exit()
+        # Setting to 100% the starting score
+        if (start_value in self.stop_scores) :
+            # No point in calculating anything, the dealer won't draw another card
+            self.remaining_proba = 0.0
+        if (start_value > 21) :
+            start_value = BUSTED
+        if (isinstance(start_value, int)) :
+            self.values[start_value] = 1.0
+        elif (start_value == BLACKJACK) :
+            self.values[BLACKJACK] = 1.0
+        elif (start_value == BUSTED) :
+            self.values[BUSTED] = 1.0
+        else :
+            print("Wrong initializer in StatScore : '", start_value, "'")
+            sys.exit()
 
     def __str__(self):
         s = ""
@@ -485,6 +495,7 @@ class StatScore(object) :
     self.remaining_proba is 0, then self.values will give the probability of each score.
     """
     def draw_card(self, card_values) :
+        TODO update and use self.aces_repartition
         self.nb_cards_in_hand = self.nb_cards_in_hand + 1
         final_remaining_proba = self.remaining_proba
         old_values = copy.deepcopy(self.values)
