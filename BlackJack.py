@@ -355,23 +355,28 @@ class Dealer(object):
         # The dealer will stop if his hand's value is any of stop_scores
         stat_score = StatScore(start_value, nb_cards_in_hand=1,stop_scores=[17, 18, 19, 20, 21, BLACKJACK, BUSTED])
         print ("Stat_score (1 card) = ", stat_score)
-
-        stat_card = StatCard(COUNT, nb_cards)
-        new_count, new_nb_cards = stat_card.get_new_count()
-        print ("Stat_card = ", stat_card)
-        print("Remaining proba = ", stat_score.remaining_proba)
+        print()
+        new_count = COUNT
+        new_nb_cards = nb_cards
 
         # TODO Since Aces can be either 1 or 11, there are as many different hand values than the number of aces in the hand.
         # For now, aces can only be worth 11
-
-        card_values_11 = stat_card.get_card_values(ace=11)
-        print ("card_values_11 = ", card_values_11)
-        #card_values_1 = stat_card.get_card_values(ace=1)
-        stat_score.draw_card(card_values_11)
-        print ("Stat_score (2 cards) = ", stat_score)
-        print("Remaining proba = ", stat_score.remaining_proba)
-        print("new_count = ", new_count)
-        print("new_nb_cards = ", new_nb_cards)
+        for i in range(4) :
+            print("Picking up a card from the deck (", i+1, ") ...")
+            stat_card = StatCard(new_count, new_nb_cards)
+            new_count, new_nb_cards = stat_card.get_new_count()
+            print ("Stat_card = ", stat_card)
+            print("Remaining proba = ", stat_score.remaining_proba)
+            # "Nine" -> 9
+            card_values_11 = stat_card.get_card_values(ace=11)
+            print ("card_values_11 = ", card_values_11)
+            #card_values_1 = stat_card.get_card_values(ace=1)
+            stat_score.draw_card(card_values_11)
+            print ("Stat_score (", i+2, " cards) = ", stat_score)
+            print("Remaining proba = ", stat_score.remaining_proba)
+            print("new_count = ", new_count)
+            print("new_nb_cards = ", new_nb_cards)
+            print()
 
         print("** STOP")
         print()
@@ -382,7 +387,7 @@ class Dealer(object):
         print ("Stat_score_11 = ", stat_score_11)
         print ("Stat_score_1 = ", stat_score_1)
 
-stat_card = StatCard(new_count, new_nb_cards)
+
 """
 
 class StatCard(object) :
@@ -483,11 +488,20 @@ class StatScore(object) :
         self.nb_cards_in_hand = self.nb_cards_in_hand + 1
         final_remaining_proba = self.remaining_proba
         old_values = copy.deepcopy(self.values)
-
+        sum_of_non_stop_scores = 0.0
         for score in self.values :
             if ((score in self.stop_scores) == False) :
+                sum_of_non_stop_scores = sum_of_non_stop_scores + self.values[score]
                 # Non stop_scores get their proba reset (since we're drawing a card and there is no "0" card)
                 self.values[score] = 0.0
+        buff_ratio = 1.0/sum_of_non_stop_scores
+        print("buff ratio = ", buff_ratio)
+        for score in old_values :
+            if (score in self.stop_scores) :
+                continue
+            # We're considering the case where our current score is not a stop_score. Therefore, the sum of the possible non-stop_scores
+            # probas must be 1. We're "buffing" their probas to achieve it.
+            old_values[score] = old_values[score]*buff_ratio
 
         for score in self.values :
             if (score in self.stop_scores) :
