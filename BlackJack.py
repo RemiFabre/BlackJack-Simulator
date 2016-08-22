@@ -350,24 +350,35 @@ class Dealer(object):
         print("nb_cards = ", nb_cards)
         start_value = int(self.hand.value)
         # We'll draw 5 cards no matter what and count how often we got 17, 18, 19, 20, 21, BJ, Busted
+
+        print ("start_value = ", start_value)
+        # The dealer will stop if his hand's value is any of stop_scores
+        stat_score = StatScore(start_value, nb_cards_in_hand=1,stop_scores=[17, 18, 19, 20, 21, BLACKJACK, BUSTED])
+        print ("Stat_score (1 card) = ", stat_score)
+
         stat_card = StatCard(COUNT, nb_cards)
         new_count, new_nb_cards = stat_card.get_new_count()
         print ("Stat_card = ", stat_card)
+        print("Remaining proba = ", stat_score.remaining_proba)
+
+        # TODO Since Aces can be either 1 or 11, there are as many different hand values than the number of aces in the hand.
+        # For now, aces can only be worth 11
 
         card_values_11 = stat_card.get_card_values(ace=11)
-        card_values_1 = stat_card.get_card_values(ace=1)
-
-        print ("start_value = ", start_value)
-        stat_score = StatScore(start_value)
-        print ("Stat_score = ", stat_score)
-        # TODO Since Aces can be either 1 or 11, there are as many different hand values than the number of aces in the hand.
+        print ("card_values_11 = ", card_values_11)
+        #card_values_1 = stat_card.get_card_values(ace=1)
+        stat_score.draw_card(card_values_11)
+        print ("Stat_score (2 cards) = ", stat_score)
+        print("Remaining proba = ", stat_score.remaining_proba)
+        print("new_count = ", new_count)
+        print("new_nb_cards = ", new_nb_cards)
 
         print("** STOP")
         print()
         input("Continue ?")
 """
-        stat_score_11 = 
-        stat_score_1 = 
+        stat_score_11 =
+        stat_score_1 =
         print ("Stat_score_11 = ", stat_score_11)
         print ("Stat_score_1 = ", stat_score_1)
 
@@ -420,8 +431,11 @@ class StatScore(object) :
     """
     Represents the probability of a score among [2, 3, ..., 21, BlackJack, Busted].
     """
-    def __init__(self, start_value):
+    def __init__(self, start_value, nb_cards_in_hand, stop_scores=[21, BLACKJACK, BUSTED]):
         self.values = {}
+        self.nb_cards_in_hand = nb_cards_in_hand
+        self.stop_scores = stop_scores
+        self.remaining_proba = 1.0
         if (isinstance(start_value, dict)) :
             if (len(start_value) != 22) :
                 print("A StatCard has always 22 values, wrong initializer")
@@ -429,9 +443,18 @@ class StatScore(object) :
             # We're already dealing with a dictionary
             self.values = start_value
         else :
+            # Initialization
             for i in range(21) :
                 self.values[i+1] = 0.0
+            self.values[BLACKJACK] = 0.0
+            self.values[BUSTED] = 0.0
 
+            # Setting to 100% the starting score
+            if (start_value in self.stop_scores) :
+                # No point in calculating anything, the dealer won't draw another card
+                self.remaining_proba = 0.0
+            if (start_value > 21) :
+                start_value = BUSTED
             if (isinstance(start_value, int)) :
                 self.values[start_value] = 1.0
             elif (start_value == BLACKJACK) :
@@ -447,6 +470,42 @@ class StatScore(object) :
         for v in self.values :
             s = s + "[" + str(v) + ": " + "{0:.1f}".format(100*self.values[v]) + "], "
         return s
+
+    """
+    Increases the odds of each score based on the chances of getting each card.
+    If a score is in the stop_scores list, then no card can be added on it (that's why there is the remaining_proba mechanic).
+    remaining_proba : quantifies the fact that the player/dealer won't ask for another card if a stop_score is already reached.
+
+    To sum it up, if our strategy is to stop drawing cards if our score is on self.stop_scores, and we call draw_card until the
+    self.remaining_proba is 0, then self.values will give the probability of each score.
+    """
+    def draw_card(self, card_values) :
+        self.nb_cards_in_hand = self.nb_cards_in_hand + 1
+        final_remaining_proba = self.remaining_proba
+        old_values = copy.deepcopy(self.values)
+
+        for score in self.values :
+            if ((score in self.stop_scores) == False) :
+                # Non stop_scores get their proba reset (since we're drawing a card and there is no "0" card)
+                self.values[score] = 0.0
+
+        for score in self.values :
+            if (score in self.stop_scores) :
+                # Can't draw a card on a stop_score
+                continue
+            for v in card_values :
+                # v is the card value (1, 2, 3, ..., 10 or 11) stat_card.values[v] is its proba
+                new_value = v + score
+                if (new_value > 21) :
+                    new_value = BUSTED
+                if (new_value == 21 and self.nb_cards_in_hand == 2) :
+                    new_value = BLACKJACK
+                new_proba = (card_values[v]*old_values[score])*self.remaining_proba
+                if (new_value in self.stop_scores) :
+                    final_remaining_proba = final_remaining_proba - new_proba
+                self.values[new_value] = new_proba + self.values[new_value]
+        # Updating the remaining proba. If it's 0, the player will never draw another card
+        self.remaining_proba = final_remaining_proba
 
 
 class Game(object):
