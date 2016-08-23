@@ -331,15 +331,16 @@ class Player(object):
 
         start_values = [int(self.hands[0].cards[0].value), int(self.hands[0].cards[1].value)]
 
-
-        print("Start_value = ", start_value)
+        print("Start_values = ", start_values)
         stat_score = StatScore(start_values[0], stop_scores=[ 21, BLACKJACK, BUSTED])
-        # Adding the second card as a fake stat_card
-        false_stat_card = StatCard(start_values[1])
+        # Adding the second card as a fake stat_card. e.g a 3 will be represented as a state card whose only non zero proba is on the card 3.
+
+        false_stat_card = StatCard(new_count, new_nb_cards, fake=True, simple_value=start_values[1])
         # "Nine" -> 9
-        card_values = stat_card.get_card_values()
-        stat_score.draw_card(card_values)
+        false_card_values = false_stat_card.get_card_values()
+        stat_score.draw_card(false_card_values)
         print("Without new card : ", stat_score.winrate_vs_statvalue(dealer_stat_score))
+        print(stat_score)
 
         stat_card = StatCard(new_count, new_nb_cards)
         new_count, new_nb_cards = stat_card.get_new_count()
@@ -348,6 +349,7 @@ class Player(object):
         card_values = stat_card.get_card_values()
         stat_score.draw_card(card_values)
         print("With new card : ", stat_score.winrate_vs_statvalue(dealer_stat_score))
+        print(stat_score)
 
 class Dealer(object):
     """
@@ -441,26 +443,23 @@ class StatCard(object) :
     Represents the probability of a card among ["Ace", "Two", ..., "King"].
     """
     # Creates a StatCard from the (ideal) count of the remaining cards.
-    def __init__(self, count, nb_cards) :
+    def __init__(self, count, nb_cards, fake=False, simple_value=2) :
         self.new_count = copy.deepcopy(count)
         #TODO Check this -1 !
         self.new_nb_cards = nb_cards -1
         self.values = {}
-        for c in count :
-            self.values[c] = count[c]/float(nb_cards)
-            # After picking a card, the likelihood of each value changes. new_count is updated to take that into account by
-            # subtracting "portions" of cards, proportionally to the card's likeliness. The sum of the portions should be 1.0
-            self.new_count[c] = self.new_count[c] - self.values[c]
-
-    def __init__(self, init) :
-        self.new_count = copy.deepcopy(count)
-        self.new_nb_cards = nb_cards -1
-        self.values = {}
-        for c in count :
-            if (CARDS[c] == init) :
-                self.values[c] = 1.0
-            else :
-                self.values[c] = 0.0
+        if (not(fake)) :
+            for c in count :
+                self.values[c] = count[c]/float(nb_cards)
+                # After picking a card, the likelihood of each value changes. new_count is updated to take that into account by
+                # subtracting "portions" of cards, proportionally to the card's likeliness. The sum of the portions should be 1.0
+                self.new_count[c] = self.new_count[c] - self.values[c]
+        else :
+            for c in count :
+                if (CARDS[c] == simple_value) :
+                    self.values[c] = 1.0
+                else :
+                    self.values[c] = 0.0
 
     def __str__(self):
         s = "\n"
@@ -686,9 +685,13 @@ class StatScore(object) :
                     loserate = loserate + p*o_p
                 elif (score == BLACKJACK and o_score != BLACKJACK) :
                     BJwinrate = BJwinrate + p*o_p
+                elif (o_score == BUSTED) :
+                    winrate = winrate + p*o_p
+                elif (score != BLACKJACK and o_score == BLACKJACK) :
+                    loserate = loserate + p*o_p
                 elif (score == o_score) :
                     tierate = tierate + p*o_p
-                elif (score > o_score) :
+                elif (int(score) > int(o_score)) :
                     winrate = winrate + p*o_p
                 else :
                     loserate = loserate + p*o_p
