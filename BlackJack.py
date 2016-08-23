@@ -11,16 +11,19 @@ from importer.StrategyImporter import StrategyImporter
 
 
 GAMES = 200
-# I'd rather consider a game is a full number of shoes played (the last hand might be shuffled in between though)
+# A game is a number of shoes played (the last hand might be shuffled in between though)
 NB_SHOES_PER_GAME = 1
-#ROUNDS_PER_GAME = 2000
 SHOE_SIZE = 6
 SHOE_PENETRATION = 0.25
 BET_SPREAD = 20.0
 BLACKJACK = "BJ"
 BUSTED = "BU"
 
+NB_MAX_CARDS_IN_HAND = 6
+RIDICULOUS_PROBA = 0.005/100.0 # 1 / 20 000
+
 DECK_SIZE = 52.0
+CARDS_ORDER = ["Ace", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King"]
 CARDS = {"Ace": 11, "Two": 2, "Three": 3, "Four": 4, "Five": 5, "Six": 6, "Seven": 7, "Eight": 8, "Nine": 9, "Ten": 10, "Jack": 10, "Queen": 10, "King": 10}
 BASIC_OMEGA_II = {"Ace": 0, "Two": 1, "Three": 1, "Four": 2, "Five": 2, "Six": 2, "Seven": 1, "Eight": 0, "Nine": -1, "Ten": -2, "Jack": -2, "Queen": -2, "King": -2}
 COUNT = {"Ace": SHOE_SIZE*4, "Two": SHOE_SIZE*4, "Three": SHOE_SIZE*4, "Four": SHOE_SIZE*4, "Five": SHOE_SIZE*4, "Six": SHOE_SIZE*4, "Seven": SHOE_SIZE*4, "Eight": SHOE_SIZE*4, "Nine": SHOE_SIZE*4, "Ten": SHOE_SIZE*4, "Jack": SHOE_SIZE*4, "Queen": SHOE_SIZE*4, "King": SHOE_SIZE*4}
@@ -340,55 +343,47 @@ class Dealer(object):
         self.hand.add_card(c)
         # print "Dealer hitted: %s" %c
 
-    ''' Returns an array of 7 numbers representing the probability that the final score of the dealer is
+    ''' Returns a StatScore representing the probability that the final score of the dealer, with a maximum of NB_MAX_CARDS.
         [17, 18, 19, 20, 21, BJ, Busted] '''
-    #TODO Differentiate 21 and BJ
     def get_probabilities(self) :
-        print()
-        print("*** START")
-        print("COUNT = ", COUNT)
-        print("nb_cards = ", nb_cards)
+        #print()
+        #print("*** START")
+        #print("COUNT = ", COUNT)
+        #print("nb_cards = ", nb_cards)
         start_value = int(self.hand.value)
         # We'll draw 5 cards no matter what and count how often we got 17, 18, 19, 20, 21, BJ, Busted
 
-        print ("start_value = ", start_value)
+        #print ("start_value = ", start_value)
         # The dealer will stop if his hand's value is any of stop_scores
         stat_score = StatScore(start_value, stop_scores=[17, 18, 19, 20, 21, BLACKJACK, BUSTED])
-        print ("Stat_score (1 card) = ", stat_score)
-        print()
+        #print ("Stat_score (1 card) = ", stat_score)
+        #print()
         new_count = COUNT
         new_nb_cards = nb_cards
 
-        for i in range(4) :
-            print("Picking up a card from the deck (", i+1, ") ...")
+        for i in range(NB_MAX_CARDS_IN_HAND-1) :
+            #print("Picking up card number ", i+1," from the deck ...")
             stat_card = StatCard(new_count, new_nb_cards)
             new_count, new_nb_cards = stat_card.get_new_count()
-            print ("Stat_card = ", stat_card)
+            #print ("Stat_card = ", stat_card)
             # "Nine" -> 9
             card_values = stat_card.get_card_values()
-            print ("card_values = ", card_values)
             stat_score.draw_card(card_values)
-            print ("Stat_score (", i+2, " cards) = ", stat_score)
-            print("(end)Remaining proba = ", stat_score.remaining_proba)
+            #print ("Stat_score (", i+2, " cards) = ", stat_score)
+            #print("(end)Remaining proba = ", stat_score.remaining_proba)
             sum = 0
             for v in stat_score.values :
                 sum = sum + stat_score.values[v]
-            print("Sum of probas = ", sum)
-            print("new_count = ", new_count)
-            print("new_nb_cards = ", new_nb_cards)
-            print()
+            #print("Sum of probas = ", sum)
+            #print()
+            if (stat_score.remaining_proba < RIDICULOUS_PROBA) :
+                # We're saving some calculation time
+                break
 
-        print("** STOP")
-        print()
-        input("Continue ?")
-"""
-        stat_score_11 =
-        stat_score_1 =
-        print ("Stat_score_11 = ", stat_score_11)
-        print ("Stat_score_1 = ", stat_score_1)
+        #print("** STOP")
+        #print()
 
-
-"""
+        return stat_score
 
 class StatCard(object) :
     """
@@ -411,7 +406,7 @@ class StatCard(object) :
 
         header = []
         probas = []
-        for v in self.values :
+        for v in CARDS_ORDER :
             header.append(v)
             probas.append("{0:.2f}".format(100*self.values[v]))
         data = [probas]
@@ -446,6 +441,7 @@ class StatScore(object) :
     Represents the probability of a score among [2, 3, ..., 21, BlackJack, Busted].
     """
     def __init__(self, start_value, stop_scores=[21, BLACKJACK, BUSTED]):
+        self.start_value = start_value
         self.values = {}
         self.nb_cards_in_hand = 1
         self.stop_scores = stop_scores
@@ -536,8 +532,9 @@ class StatScore(object) :
                 self.soft_ace_proba[score] = 0.0
         if (sum_of_non_stop_scores != 0) :
             buff_ratio = 1.0/sum_of_non_stop_scores
-            print("Remaining proba = {}, inverse = {}".format(self.remaining_proba, 1/self.remaining_proba))
-            print("buff ratio = ", buff_ratio)
+            if (abs(sum_of_non_stop_scores - self.remaining_proba) > RIDICULOUS_PROBA) :
+                print("sum_of_non_stop_scores should be equal to self.remaining_proba, unless we're doing some fancy stuff (that will probably be wrong :D)")
+
             for score in old_values :
                 if (score in self.stop_scores) :
                     continue
@@ -674,7 +671,10 @@ class Game(object):
         self.dealer.set_hand(dealer_hand)
         # print "Dealer Hand: %s" % self.dealer.hand
         # print "Player Hand: %s\n" % self.player.hands[0]
-        self.dealer.get_probabilities()
+        stat_score = self.dealer.get_probabilities()
+        print("Strating card : ", stat_score.start_value)
+        print(stat_score)
+        input("Continue ?")
 
         self.player.play(self.shoe)
         self.dealer.play(self.shoe)
