@@ -328,7 +328,8 @@ class Player(object):
     def get_ideal_action(self, dealer_stat_score):
         new_count = copy.deepcopy(COUNT)
         new_nb_cards = nb_cards
-
+        results_per_card = []
+        ev_per_card = []
         start_values = [int(self.hands[0].cards[0].value), int(self.hands[0].cards[1].value)]
 
         print("Start_values = ", start_values)
@@ -339,8 +340,11 @@ class Player(object):
         # "Nine" -> 9
         false_card_values = false_stat_card.get_card_values()
         stat_score.draw_card(false_card_values)
-        print("Without new card : ", stat_score.winrate_vs_statvalue(dealer_stat_score))
+
+        results_per_card.append(stat_score.winrate_vs_statvalue(dealer_stat_score))
+        ev_per_card.append(self.ev_from_winrate(results_per_card[-1]))
         print(stat_score)
+        print("Without new card : ", results_per_card[-1], ", EV = ", ev_per_card[-1])
 
         stat_card = StatCard(new_count, new_nb_cards)
         new_count, new_nb_cards = stat_card.get_new_count()
@@ -348,8 +352,33 @@ class Player(object):
         # "Nine" -> 9
         card_values = stat_card.get_card_values()
         stat_score.draw_card(card_values)
-        print("With new card : ", stat_score.winrate_vs_statvalue(dealer_stat_score))
+        results_per_card.append(stat_score.winrate_vs_statvalue(dealer_stat_score))
+        ev_per_card.append(self.ev_from_winrate(results_per_card[-1]))
         print(stat_score)
+        print("With new card : ", results_per_card[-1], ", EV = ", ev_per_card[-1])
+
+        stat_card = StatCard(new_count, new_nb_cards)
+        new_count, new_nb_cards = stat_card.get_new_count()
+        #print ("Stat_card = ", stat_card)
+        # "Nine" -> 9
+        card_values = stat_card.get_card_values()
+        stat_score.draw_card(card_values)
+        results_per_card.append(stat_score.winrate_vs_statvalue(dealer_stat_score))
+        ev_per_card.append(self.ev_from_winrate(results_per_card[-1]))
+        print(stat_score)
+        print("With new card : ", results_per_card[-1], ", EV = ", ev_per_card[-1])
+
+        print("results_per_card = ", results_per_card)
+        print("ev_per_card = ", ev_per_card)
+
+    def ev_from_winrate(self, stat_results, BJratio=1.5) :
+        winrate = stat_results[0]
+        tierate = stat_results[1]
+        loserate = stat_results[2]
+        BJwinrate = stat_results[3]
+
+        ev = winrate - loserate + BJratio*BJwinrate
+        return ev
 
 class Dealer(object):
     """
@@ -456,10 +485,13 @@ class StatCard(object) :
                 self.new_count[c] = self.new_count[c] - self.values[c]
         else :
             for c in count :
-                if (CARDS[c] == simple_value) :
+                if (CARDS[c] == simple_value and simple_value != 10) :
                     self.values[c] = 1.0
                 else :
                     self.values[c] = 0.0
+            # Otherwise all the 10 values (T, J, Q, K) would get a 1.0 proba...
+            if (simple_value == 10) :
+                    self.values["Ten"] = 1.0
 
     def __str__(self):
         s = "\n"
