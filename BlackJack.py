@@ -555,10 +555,10 @@ class StatScore(object) :
                     # Effect on the soft_ace_proba for new_value :
                     #self.soft_ace_proba[new_value] = self.soft_ace_proba[new_value] * (1.0 - population_ratio)
                     #TODO I probably did some awful mistake here :D Sleep some then fix some
-                    #TODO I insist on this problem
+                    #TODO I insist on this problem. Starting with an ace makes the hand immune to busting ...
                 else :
                     # Updating the proba of having a soft ace only because of the previous cards
-                    self.soft_ace_proba[new_value] = self.soft_ace_proba[new_value] + (card_values[v]*old_values[score]*old_soft_aces[score])*self.remaining_proba
+                    self.soft_ace_proba[new_value] = self.soft_ace_proba[new_value] + (old_values[score]*old_soft_aces[score])*self.remaining_proba
                     if (new_value == 21 and self.nb_cards_in_hand == 2) :
                         new_value = BLACKJACK
                     new_proba = (card_values[v]*old_values[score])*self.remaining_proba
