@@ -377,7 +377,7 @@ class Dealer(object):
                 actual_card = VALUE_TO_NAME[start_value]
             # Taking that card out of the deck
             if (new_count[actual_card] < 1) :
-                print("We're forcing a '", start_card, "' out of the deck but there is none left. You should've checked !")
+                #print("We're forcing a '", start_card, "' out of the deck but there is none left. You should've checked !")
                 sys.exit()
             new_count[actual_card] = new_count[actual_card] - 1
             new_nb_cards = new_nb_cards - 1
@@ -625,7 +625,10 @@ class StatScore(object) :
             if (score in self.stop_scores) :
                 # Can't draw a card on a stop_score
                 continue
-            self.soft_ace_proba[score] = self.soft_ace_proba[score]/float(score)
+            if (self.values[score] == 0.0) :
+                self.soft_ace_proba[score] = 0.0
+                continue
+            self.soft_ace_proba[score] = self.soft_ace_proba[score]/float(self.values[score])
             sum = sum + self.values[score]
 
         self.remaining_proba = sum
