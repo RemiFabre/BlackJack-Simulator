@@ -364,13 +364,16 @@ class Dealer(object):
             stat_card = StatCard(new_count, new_nb_cards)
             new_count, new_nb_cards = stat_card.get_new_count()
             print ("Stat_card = ", stat_card)
-            print("Remaining proba = ", stat_score.remaining_proba)
             # "Nine" -> 9
             card_values = stat_card.get_card_values()
             print ("card_values = ", card_values)
             stat_score.draw_card(card_values)
             print ("Stat_score (", i+2, " cards) = ", stat_score)
-            print("Remaining proba = ", stat_score.remaining_proba)
+            print("(end)Remaining proba = ", stat_score.remaining_proba)
+            sum = 0
+            for v in stat_score.values :
+                sum = sum + stat_score.values[v]
+            print("Sum of probas = ", sum)
             print("new_count = ", new_count)
             print("new_nb_cards = ", new_nb_cards)
             print()
@@ -506,6 +509,7 @@ class StatScore(object) :
                 self.soft_ace_proba[score] = 0.0
         if (sum_of_non_stop_scores != 0) :
             buff_ratio = 1.0/sum_of_non_stop_scores
+            print("Remaining proba = {}, inverse = {}".format(self.remaining_proba, 1/self.remaining_proba))
             print("buff ratio = ", buff_ratio)
             for score in old_values :
                 if (score in self.stop_scores) :
@@ -535,30 +539,29 @@ class StatScore(object) :
                         self.soft_ace_proba[new_value] = self.soft_ace_proba[new_value] + (card_values[v]*old_values[score]*1.0)*self.remaining_proba
 
                 if (new_value > 21) :
-                    # There is a slime chance that we still have a soft ace in our hand, reducing the proba of busting
+                    # There is a chance that we still have a soft ace in our hand, reducing the proba of busting
                     # and increasing the proba of reaching new_value - 10.
                     soft_ace_proba = old_soft_aces[score]
                     new_proba_busted = (card_values[v]*old_values[score])*self.remaining_proba*(1-soft_ace_proba)
                     new_proba_not_busted = (card_values[v]*old_values[score])*self.remaining_proba*(soft_ace_proba)
 
+                    # Handling the Busted population
+                    if (new_value in self.stop_scores) :
+                        final_remaining_proba = final_remaining_proba - new_proba_busted
                     self.values[BUSTED] = new_proba_busted + self.values[BUSTED]
 
+                    # Handling the new_value - 10 population
                     new_value = new_value - 10
                     if (new_value in self.stop_scores) :
                         final_remaining_proba = final_remaining_proba - new_proba_not_busted
                     self.values[new_value] = new_proba_not_busted + self.values[new_value]
-                    # Important note : we turned a soft-11 ace into a hard-1 one. This increased the odds of reaching new_value, but it should also
-                    # lower the odds of having a soft-11 ace on new_value (the small portion of hand population that we added has already a hard ace).
-                    # TODO this effect is slightly complex to tackle (we need to calculate the probability of having exactly 2 aces, then exactly 3 ... exactly n)
-                    # and is treated in the following way :
-                    # we'll assume that the population that already got 1 soft ace turned will never have another that was already a soft 11 given by previous cards.
-                    # Effect on the soft_ace_proba for new_value :
-                    #self.soft_ace_proba[new_value] = self.soft_ace_proba[new_value] * (1.0 - population_ratio)
-                    #TODO I probably did some awful mistake here :D Sleep some then fix some
-                    #TODO I insist on this problem. Starting with an ace makes the hand immune to busting ...
+                    # Important note : we turned a soft-11 ace into a hard-1 one. This increased the odds of reaching new_value-10, but it should also
+                    # lower the odds of having a soft-11 ace on new_value-10 (the small portion of hand population that we added has already a hard ace).
+                    # The way this is handled is to assume that 100% of the new_value-10 population that we added by not busting has 0% chance of having another
+                    # soft ace in it. Actually, this is exact since there is no hand that can have 2 soft aces (11+11 = busted)
                 else :
                     # Updating the proba of having a soft ace only because of the previous cards
-                    self.soft_ace_proba[new_value] = self.soft_ace_proba[new_value] + (old_values[score]*old_soft_aces[score])*self.remaining_proba
+                    self.soft_ace_proba[new_value] = self.soft_ace_proba[new_value] + (card_values[v]*old_values[score]*old_soft_aces[score])*self.remaining_proba
                     if (new_value == 21 and self.nb_cards_in_hand == 2) :
                         new_value = BLACKJACK
                     new_proba = (card_values[v]*old_values[score])*self.remaining_proba
@@ -566,6 +569,13 @@ class StatScore(object) :
                         final_remaining_proba = final_remaining_proba - new_proba
                     self.values[new_value] = new_proba + self.values[new_value]
 
+        # Ending the soft ace calculation. We need to wait until all the odds are calculated to do this ratio. Think of it like a ratio between a special
+        # population (the soft ace hands) and the total population
+        for score in self.values :
+            if (score in self.stop_scores) :
+                # Can't draw a card on a stop_score
+                continue
+            self.soft_ace_proba[score] = self.soft_ace_proba[score]/float(score)
         # Updating the remaining proba. If it's 0, the player will never draw another card
         self.remaining_proba = final_remaining_proba
 
