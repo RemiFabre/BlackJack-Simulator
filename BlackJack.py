@@ -324,6 +324,30 @@ class Player(object):
         # print "Splitted %s" % hand
         self.play_hand(hand, shoe)
 
+    #TODO The dealer stat_score is assumed to be constant. This is not accurate since the card picked by the player affect the dealer's stats
+    def get_ideal_action(self, dealer_stat_score):
+        new_count = copy.deepcopy(COUNT)
+        new_nb_cards = nb_cards
+
+        start_values = [int(self.hands[0].cards[0].value), int(self.hands[0].cards[1].value)]
+
+
+        print("Start_value = ", start_value)
+        stat_score = StatScore(start_values[0], stop_scores=[ 21, BLACKJACK, BUSTED])
+        # Adding the second card as a fake stat_card
+        false_stat_card = StatCard(start_values[1])
+        # "Nine" -> 9
+        card_values = stat_card.get_card_values()
+        stat_score.draw_card(card_values)
+        print("Without new card : ", stat_score.winrate_vs_statvalue(dealer_stat_score))
+
+        stat_card = StatCard(new_count, new_nb_cards)
+        new_count, new_nb_cards = stat_card.get_new_count()
+        #print ("Stat_card = ", stat_card)
+        # "Nine" -> 9
+        card_values = stat_card.get_card_values()
+        stat_score.draw_card(card_values)
+        print("With new card : ", stat_score.winrate_vs_statvalue(dealer_stat_score))
 
 class Dealer(object):
     """
@@ -419,6 +443,7 @@ class StatCard(object) :
     # Creates a StatCard from the (ideal) count of the remaining cards.
     def __init__(self, count, nb_cards) :
         self.new_count = copy.deepcopy(count)
+        #TODO Check this -1 !
         self.new_nb_cards = nb_cards -1
         self.values = {}
         for c in count :
@@ -426,6 +451,16 @@ class StatCard(object) :
             # After picking a card, the likelihood of each value changes. new_count is updated to take that into account by
             # subtracting "portions" of cards, proportionally to the card's likeliness. The sum of the portions should be 1.0
             self.new_count[c] = self.new_count[c] - self.values[c]
+
+    def __init__(self, init) :
+        self.new_count = copy.deepcopy(count)
+        self.new_nb_cards = nb_cards -1
+        self.values = {}
+        for c in count :
+            if (CARDS[c] == init) :
+                self.values[c] = 1.0
+            else :
+                self.values[c] = 0.0
 
     def __str__(self):
         s = "\n"
@@ -633,6 +668,32 @@ class StatScore(object) :
 
         self.remaining_proba = sum
 
+    # Returns winrate, tierate, loserate, BJwinrate. The sum of the 4 values should be 1.
+    # The current statvalue loses if it busts, therefore this function should be used from
+    # the player's statvalue and not from the Dealer's.
+    def winrate_vs_statvalue(self, o_stat_value) :
+        # o_stat_value = opponent's stat_value
+        winrate = 0.0
+        tierate = 0.0
+        loserate = 0.0
+        BJwinrate = 0.0
+        for score in self.values :
+            p = self.values[score]
+            for o_score in o_stat_value.values :
+                o_p = o_stat_value.values[o_score]
+                if (score == BUSTED) :
+                    # We busted, we lost no matter what
+                    loserate = loserate + p*o_p
+                elif (score == BLACKJACK and o_score != BLACKJACK) :
+                    BJwinrate = BJwinrate + p*o_p
+                elif (score == o_score) :
+                    tierate = tierate + p*o_p
+                elif (score > o_score) :
+                    winrate = winrate + p*o_p
+                else :
+                    loserate = loserate + p*o_p
+        return winrate, tierate, loserate, BJwinrate
+
 class StatChart(object) :
     """
     Chart Representing the probability of a score among [2, 3, ..., 21, BlackJack, Busted] (cols) with any starting card (rows)
@@ -735,8 +796,8 @@ class Game(object):
 
         for i in range(10) :
             value = i + 2
-            stat_score = self.dealer.get_probabilities(value)
-            stat_chart.add_to_map(value, stat_score)
+            dealer_stat_score = self.dealer.get_probabilities(value)
+            stat_chart.add_to_map(value, dealer_stat_score)
         print("StatChart for the Dealer (before drawing any card):", stat_chart)
 
         dealer_hand = Hand([self.shoe.deal()])
@@ -746,9 +807,12 @@ class Game(object):
         self.player.set_hands(player_hand, dealer_hand)
         # print "Dealer Hand: %s" % self.dealer.hand
         # print "Player Hand: %s\n" % self.player.hands[0]
-        stat_score = self.dealer.get_probabilities()
-        print("\nStatScore for the Dealer after drawing a '", stat_score.start_value, "':")
-        print(stat_score)
+
+        dealer_stat_score = self.dealer.get_probabilities()
+        print("\nStatScore for the Dealer after drawing a '", dealer_stat_score.start_value, "':")
+        print(dealer_stat_score)
+
+        self.player.get_ideal_action(dealer_stat_score)
         input("Continue ?")
 
         self.player.play(self.shoe)
