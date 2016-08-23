@@ -19,12 +19,13 @@ BET_SPREAD = 20.0
 BLACKJACK = "BJ"
 BUSTED = "BU"
 
-NB_MAX_CARDS_IN_HAND = 6
+NB_MAX_CARDS_IN_HAND = 8
 RIDICULOUS_PROBA = 0.005/100.0 # 1 / 20 000
 
 DECK_SIZE = 52.0
 CARDS_ORDER = ["Ace", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King"]
 CARDS = {"Ace": 11, "Two": 2, "Three": 3, "Four": 4, "Five": 5, "Six": 6, "Seven": 7, "Eight": 8, "Nine": 9, "Ten": 10, "Jack": 10, "Queen": 10, "King": 10}
+VALUE_TO_NAME = {11 : "Ace", 2 : "Two", 3 : "Three", 4 : "Four", 5 : "Five", 6 : "Six", 7 : "Seven", 8 : "Eight", 9 : "Nine", 10 : "Ten"}
 BASIC_OMEGA_II = {"Ace": 0, "Two": 1, "Three": 1, "Four": 2, "Five": 2, "Six": 2, "Seven": 1, "Eight": 0, "Nine": -1, "Ten": -2, "Jack": -2, "Queen": -2, "King": -2}
 COUNT = {"Ace": SHOE_SIZE*4, "Two": SHOE_SIZE*4, "Three": SHOE_SIZE*4, "Four": SHOE_SIZE*4, "Five": SHOE_SIZE*4, "Six": SHOE_SIZE*4, "Seven": SHOE_SIZE*4, "Eight": SHOE_SIZE*4, "Nine": SHOE_SIZE*4, "Ten": SHOE_SIZE*4, "Jack": SHOE_SIZE*4, "Queen": SHOE_SIZE*4, "King": SHOE_SIZE*4}
 nb_cards = DECK_SIZE*SHOE_SIZE
@@ -345,21 +346,47 @@ class Dealer(object):
 
     ''' Returns a StatScore representing the probability that the final score of the dealer, with a maximum of NB_MAX_CARDS.
         [17, 18, 19, 20, 21, BJ, Busted] '''
-    def get_probabilities(self) :
+    def get_probabilities(self, starting_value=None) :
         #print()
         #print("*** START")
         #print("COUNT = ", COUNT)
         #print("nb_cards = ", nb_cards)
-        start_value = int(self.hand.value)
-        # We'll draw 5 cards no matter what and count how often we got 17, 18, 19, 20, 21, BJ, Busted
+        new_count = copy.deepcopy(COUNT)
+        new_nb_cards = nb_cards
+        if (starting_value == None) :
+            # We'll assume the dealer has already a card in hand
+            start_value = int(self.hand.value)
+        else :
+            # We're forcing a starting card :
+            start_value = starting_value
+            if (start_value == 10) :
+                # A bit annoying : when simulating a 10 as the first card, we don't care if it's 10, J, Q or K. We'll just pick the card that
+                # is the most present.
+                actual_card = "Ten"
+                max = COUNT[actual_card]
+                if (max < COUNT["Jack"]) :
+                    max = COUNT["Jack"]
+                    actual_card = "Jack"
+                if (max < COUNT["Queen"]) :
+                    max = COUNT["Queen"]
+                    actual_card = "Queen"
+                if (max < COUNT["King"]) :
+                    max = COUNT["King"]
+                    actual_card = "King"
+            else :
+                actual_card = VALUE_TO_NAME[start_value]
+            # Taking that card out of the deck
+            if (new_count[actual_card] < 1) :
+                print("We're forcing a '", start_card, "' out of the deck but there is none left. You should've checked !")
+                sys.exit()
+            new_count[actual_card] = new_count[actual_card] - 1
+            new_nb_cards = new_nb_cards - 1
 
         #print ("start_value = ", start_value)
         # The dealer will stop if his hand's value is any of stop_scores
         stat_score = StatScore(start_value, stop_scores=[17, 18, 19, 20, 21, BLACKJACK, BUSTED])
         #print ("Stat_score (1 card) = ", stat_score)
         #print()
-        new_count = COUNT
-        new_nb_cards = nb_cards
 
         for i in range(NB_MAX_CARDS_IN_HAND-1) :
             #print("Picking up card number ", i+1," from the deck ...")
@@ -603,6 +630,39 @@ class StatScore(object) :
 
         self.remaining_proba = sum
 
+class StatChart(object) :
+    """
+    Chart Representing the probability of a score among [2, 3, ..., 21, BlackJack, Busted] (cols) with any starting card (rows)
+    """
+    def __init__(self, card_values):
+        self.map_of_stat_scores = {}
+        self.card_values = card_values
+
+    def __str__(self):
+        s = "\n"
+        data = []
+
+        header = ["Start "]
+        probas = []
+        # Reading the col names from any of the stat_scores
+        for stat in self.map_of_stat_scores :
+            for v in self.map_of_stat_scores[stat].values :
+                header.append(v)
+            break
+        for i in range(10) :
+            start_value = i + 2
+            # The first col is the value of the first card and its proba
+            probas.append(str(start_value) + " (" + "{0:.1f}".format(100*self.card_values[start_value])  + ")")
+            for v in self.map_of_stat_scores[start_value].values :
+                probas.append("{0:.2f}".format(100*self.map_of_stat_scores[start_value].values[v]))
+            data.append(probas)
+            probas = []
+
+        s = s + tabulate(data, headers=header, tablefmt="fancy_grid")
+        return s
+
+    def add_to_map(self, key, stat_score) :
+        self.map_of_stat_scores[key] = stat_score
 
 class Game(object):
     """
@@ -665,14 +725,26 @@ class Game(object):
         else:
             self.stake = 1.0
 
-        player_hand = Hand([self.shoe.deal(), self.shoe.deal()])
+        # Checking out the dealers stats before the cards are dealt :
+        stat_card = StatCard(COUNT, nb_cards)
+        card_values = stat_card.get_card_values()
+        stat_chart = StatChart(card_values)
+
+        for i in range(10) :
+            value = i + 2
+            stat_score = self.dealer.get_probabilities(value)
+            stat_chart.add_to_map(value, stat_score)
+        print("StatChart for the Dealer (before drawing any card):", stat_chart)
+
         dealer_hand = Hand([self.shoe.deal()])
-        self.player.set_hands(player_hand, dealer_hand)
         self.dealer.set_hand(dealer_hand)
+
+        player_hand = Hand([self.shoe.deal(), self.shoe.deal()])
+        self.player.set_hands(player_hand, dealer_hand)
         # print "Dealer Hand: %s" % self.dealer.hand
         # print "Player Hand: %s\n" % self.player.hands[0]
         stat_score = self.dealer.get_probabilities()
-        print("Strating card : ", stat_score.start_value)
+        print("\nStatScore for the Dealer after drawing a '", stat_score.start_value, "':")
         print(stat_score)
         input("Continue ?")
 
