@@ -6,7 +6,7 @@ import scipy.stats as stats
 import pylab as pl
 import matplotlib.pyplot as plt
 import copy
-
+from tabulate import tabulate
 from importer.StrategyImporter import StrategyImporter
 
 
@@ -406,6 +406,19 @@ class StatCard(object) :
             self.new_count[c] = self.new_count[c] - self.values[c]
 
     def __str__(self):
+        s = "\n"
+        data = []
+
+        header = []
+        probas = []
+        for v in self.values :
+            header.append(v)
+            probas.append("{0:.2f}".format(100*self.values[v]))
+        data = [probas]
+        s = s + tabulate(data, headers=header, tablefmt="fancy_grid")
+        return s
+
+    def ugly_print(self):
         s = ""
         for v in self.values :
             s = s + "[" + v + ": " + "{0:.1f}".format(100*self.values[v]) + "], "
@@ -478,6 +491,21 @@ class StatScore(object) :
             sys.exit()
 
     def __str__(self):
+        s = "\n"
+        data = []
+
+        header = []
+        probas = []
+        soft_ace_probas = []
+        for v in self.values :
+            header.append(v)
+            probas.append("{0:.2f}".format(100*self.values[v]))
+            soft_ace_probas.append("{0:.2f}".format(100*self.soft_ace_proba[v]))
+        data = [probas, soft_ace_probas]
+        s = s + tabulate(data, headers=header, tablefmt="fancy_grid")
+        return s
+
+    def ugly_print(self) :
         s = ""
         for v in self.values :
             s = s + "[" + str(v) + ": " + "{0:.1f}".format(100*self.values[v]) + "], "
@@ -497,7 +525,6 @@ class StatScore(object) :
     #TODO re-read every formula, this is very error prone. Then double check with detailed simulation results
     def draw_card(self, card_values) :
         self.nb_cards_in_hand = self.nb_cards_in_hand + 1
-        final_remaining_proba = self.remaining_proba
         old_values = copy.deepcopy(self.values)
         old_soft_aces = copy.deepcopy(self.soft_ace_proba)
         sum_of_non_stop_scores = 0.0
@@ -546,14 +573,10 @@ class StatScore(object) :
                     new_proba_not_busted = (card_values[v]*old_values[score])*self.remaining_proba*(soft_ace_proba)
 
                     # Handling the Busted population
-                    if (new_value in self.stop_scores) :
-                        final_remaining_proba = final_remaining_proba - new_proba_busted
                     self.values[BUSTED] = new_proba_busted + self.values[BUSTED]
 
                     # Handling the new_value - 10 population
                     new_value = new_value - 10
-                    if (new_value in self.stop_scores) :
-                        final_remaining_proba = final_remaining_proba - new_proba_not_busted
                     self.values[new_value] = new_proba_not_busted + self.values[new_value]
                     # Important note : we turned a soft-11 ace into a hard-1 one. This increased the odds of reaching new_value-10, but it should also
                     # lower the odds of having a soft-11 ace on new_value-10 (the small portion of hand population that we added has already a hard ace).
@@ -562,22 +585,26 @@ class StatScore(object) :
                 else :
                     # Updating the proba of having a soft ace only because of the previous cards
                     self.soft_ace_proba[new_value] = self.soft_ace_proba[new_value] + (card_values[v]*old_values[score]*old_soft_aces[score])*self.remaining_proba
+                    # Handling the BJ case
                     if (new_value == 21 and self.nb_cards_in_hand == 2) :
                         new_value = BLACKJACK
+
+                    # Handling the "normal" case
                     new_proba = (card_values[v]*old_values[score])*self.remaining_proba
-                    if (new_value in self.stop_scores) :
-                        final_remaining_proba = final_remaining_proba - new_proba
                     self.values[new_value] = new_proba + self.values[new_value]
 
         # Ending the soft ace calculation. We need to wait until all the odds are calculated to do this ratio. Think of it like a ratio between a special
         # population (the soft ace hands) and the total population
+        # Also updating the remaining proba. If it's 0, the player will never draw another card
+        sum = 0.0
         for score in self.values :
             if (score in self.stop_scores) :
                 # Can't draw a card on a stop_score
                 continue
             self.soft_ace_proba[score] = self.soft_ace_proba[score]/float(score)
-        # Updating the remaining proba. If it's 0, the player will never draw another card
-        self.remaining_proba = final_remaining_proba
+            sum = sum + self.values[score]
+
+        self.remaining_proba = sum
 
 
 class Game(object):
