@@ -342,10 +342,32 @@ class Player(object):
         stat_score.draw_card(false_card_values)
 
         results_per_card.append(stat_score.winrate_vs_statvalue(dealer_stat_score))
-        ev_per_card.append(self.ev_from_winrate(results_per_card[-1]))
+        ev_per_card.append(stat_score.ev_from_winrate(results_per_card[-1]))
         print(stat_score)
         print("Without new card : ", results_per_card[-1], ", EV = ", ev_per_card[-1])
 
+        # When the player is dealt its 2 cards, he has 4 options : stay, hit, double or split (in case of a pair).
+        # Knowing the EV for the stay option is instantaneous. The current known score is compared to the dealers statistically estimated list of scores.
+        # Knowing the EV for the double option requires to draw 1 card and then compare the repartition with the dealer's.
+        # Knowing the EV for the pair option is equivalent to creating 2 hands and starting over,
+        # for each hand the first card is known and the second one is purely statistical.
+        #
+        # Knowing the EV for the hit option is trickier. After drawing a card, each potential new value must be treated on its own to decide
+        # either to stand or to hit. Each new hit creates a new list of potential values, each needing again the same research on stand vs hit.
+        # The research ends when the only remaining options are stands. Only then can we go back recursively and calculate the actual EV of the first hit option !
+        # A few rules :
+        # - Must stand on 21, BLACKJACK and BUSTED
+        # - Always hit if current score <= 11
+        # - If after a hit, the optimistic EV is lower than the previous stand EV, then stand
+        # - If the premature EV of a hit is greater than the stand EV, then hit
+        if self.hands[0].soft() :
+            score = Score(start_values[0] + start_values[1], 1.0, 1.0)
+        else :
+            score = Score(start_values[0] + start_values[1], 1.0, 0.0)
+
+        print("EV with Score method : ", score.EV(dealer_stat_score))
+        print("ideal EV : ", score.ideal_EV(dealer_stat_score, new_count, new_nb_cards))
+        input("Wait for it")
         stat_card = StatCard(new_count, new_nb_cards)
         new_count, new_nb_cards = stat_card.get_new_count()
         #print ("Stat_card = ", stat_card)
@@ -353,7 +375,7 @@ class Player(object):
         card_values = stat_card.get_card_values()
         stat_score.draw_card(card_values)
         results_per_card.append(stat_score.winrate_vs_statvalue(dealer_stat_score))
-        ev_per_card.append(self.ev_from_winrate(results_per_card[-1]))
+        ev_per_card.append(stat_score.ev_from_winrate(results_per_card[-1]))
         print(stat_score)
         print("With new card : ", results_per_card[-1], ", EV = ", ev_per_card[-1])
 
@@ -364,21 +386,13 @@ class Player(object):
         card_values = stat_card.get_card_values()
         stat_score.draw_card(card_values)
         results_per_card.append(stat_score.winrate_vs_statvalue(dealer_stat_score))
-        ev_per_card.append(self.ev_from_winrate(results_per_card[-1]))
+        ev_per_card.append(stat_score.ev_from_winrate(results_per_card[-1]))
         print(stat_score)
         print("With new card : ", results_per_card[-1], ", EV = ", ev_per_card[-1])
 
         print("results_per_card = ", results_per_card)
         print("ev_per_card = ", ev_per_card)
 
-    def ev_from_winrate(self, stat_results, BJratio=1.5) :
-        winrate = stat_results[0]
-        tierate = stat_results[1]
-        loserate = stat_results[2]
-        BJwinrate = stat_results[3]
-
-        ev = winrate - loserate + BJratio*BJwinrate
-        return ev
 
 class Dealer(object):
     """
@@ -482,6 +496,7 @@ class StatCard(object) :
                 self.values[c] = count[c]/float(nb_cards)
                 # After picking a card, the likelihood of each value changes. new_count is updated to take that into account by
                 # subtracting "portions" of cards, proportionally to the card's likeliness. The sum of the portions should be 1.0
+                # TODO this is actually an approximation. The exact method would be to save a whole number count per card drawn.
                 self.new_count[c] = self.new_count[c] - self.values[c]
         else :
             for c in count :
@@ -529,9 +544,103 @@ class StatCard(object) :
                 result[CARDS[c]] = self.values[c]
         return result
 
+
+class Score(object) :
+    """
+    Represents a single score among [2, 3, ..., 21, BlackJack, Busted].
+    """
+    def __init__(self, value, proba, soft_ace_proba) :
+        self.value = value
+        self.proba = proba
+        self.soft_ace_proba = soft_ace_proba
+
+    def get_stat_score(self) :
+        stat_score = StatScore(self.value)
+        # Clearing the soft_ace_probas and setting it again if this is a soft_score
+        for i in range(21) :
+            stat_score.soft_ace_proba[i+1] = 0.0
+        if (is_number(self.value)) :
+            stat_score.soft_ace_proba[self.value] = self.soft_ace_proba
+        return stat_score
+
+    def EV(self, o_stat_value, BJratio=1.5) :
+        # o_stat_value = opponent's stat_value
+        winrate = 0.0
+        tierate = 0.0
+        loserate = 0.0
+        BJwinrate = 0.0
+        bustrate = 0.0
+        score = self.value
+        p = self.proba
+
+        for o_score in o_stat_value.values :
+            o_p = o_stat_value.values[o_score]
+            if (score == BUSTED) :
+                # We busted, we lost no matter what
+                loserate = loserate + p*o_p
+                bustrate = bustrate + p*o_p
+            elif (score == BLACKJACK and o_score != BLACKJACK) :
+                BJwinrate = BJwinrate + p*o_p
+            elif (o_score == BUSTED) :
+                winrate = winrate + p*o_p
+            elif (score != BLACKJACK and o_score == BLACKJACK) :
+                loserate = loserate + p*o_p
+            elif (score == o_score) :
+                tierate = tierate + p*o_p
+            elif (int(score) > int(o_score)) :
+                winrate = winrate + p*o_p
+            else :
+                loserate = loserate + p*o_p
+
+        ev = winrate - loserate + BJratio*BJwinrate
+        return ev
+
+    # Returns the EV of the optimal play. The sum of probas and the number of calls are returned too,
+    # as a verification measure :
+    # output = [EV, sum of probas that should be 1, number of calls]
+    def ideal_EV(self, dealer_stat_score, new_count, new_nb_cards) :
+        ev_without_hit = self.EV(dealer_stat_score)
+        if self.value == 21 or self.value == BUSTED or self.value == BLACKJACK :
+            # We're stopping here no matter what
+            return [ev_without_hit, self.proba, 1]
+        else :
+            # Turning into a StatScore
+            stat_score = self.get_stat_score()
+            # Hitting a statistical card
+            stat_card = StatCard(new_count, new_nb_cards)
+            new_count, new_nb_cards = stat_card.get_new_count()
+            card_values = stat_card.get_card_values()
+            stat_score.draw_card(card_values)
+
+            # Checking if hitting a card is an obvious disaster :
+            rates = stat_score.winrate_vs_statvalue(dealer_stat_score)
+            optimistic_ev = stat_score.ev_limit_by_bust(rates)
+            if (optimistic_ev <= ev_without_hit) :
+                # No point in calculating the actual hit ev, it'll be below the stand ev
+                #print("no point in going further, optimistic ev = ", optimistic_ev)
+                return [ev_without_hit, self.proba, 1]
+
+            # Checks each individual value's EV
+            EV_sum = 0.0
+            proba_sum = 0.0
+            nb_calls = 1
+            for v in stat_score.values :
+                if stat_score.values[v] == 0.0 :
+                    continue
+                # Creating a Score that will be investigated on its own
+                new_score = Score(v, self.proba*stat_score.values[v], stat_score.soft_ace_proba[v])
+                # If we stand on the current value, the EV is known :
+                ev_stand = new_score.EV(dealer_stat_score)
+                results = new_score.ideal_EV(dealer_stat_score, new_count, new_nb_cards)
+                EV_sum = EV_sum + new_score.proba*max(ev_stand, results[0])
+                proba_sum = proba_sum + results[1]
+                nb_calls = nb_calls + results[2]
+            return [EV_sum, proba_sum, nb_calls]
+
+
 class StatScore(object) :
     """
-    Represents the probability of a score among [2, 3, ..., 21, BlackJack, Busted].
+    Represents the probability of a score being any value among [2, 3, ..., 21, BlackJack, Busted].
     """
     def __init__(self, start_value, stop_scores=[21, BLACKJACK, BUSTED]):
         self.start_value = start_value
@@ -699,7 +808,7 @@ class StatScore(object) :
 
         self.remaining_proba = sum
 
-    # Returns winrate, tierate, loserate, BJwinrate. The sum of the 4 values should be 1.
+    # Returns [winrate, tierate, loserate, BJwinrate, bustrate]. The sum of the first 4 values should be 1.
     # The current statvalue loses if it busts, therefore this function should be used from
     # the player's statvalue and not from the Dealer's.
     def winrate_vs_statvalue(self, o_stat_value) :
@@ -708,6 +817,7 @@ class StatScore(object) :
         tierate = 0.0
         loserate = 0.0
         BJwinrate = 0.0
+        bustrate = 0.0
         for score in self.values :
             p = self.values[score]
             for o_score in o_stat_value.values :
@@ -715,6 +825,7 @@ class StatScore(object) :
                 if (score == BUSTED) :
                     # We busted, we lost no matter what
                     loserate = loserate + p*o_p
+                    bustrate = bustrate + p*o_p
                 elif (score == BLACKJACK and o_score != BLACKJACK) :
                     BJwinrate = BJwinrate + p*o_p
                 elif (o_score == BUSTED) :
@@ -727,7 +838,26 @@ class StatScore(object) :
                     winrate = winrate + p*o_p
                 else :
                     loserate = loserate + p*o_p
-        return winrate, tierate, loserate, BJwinrate
+        return [winrate, tierate, loserate, BJwinrate, bustrate]
+
+    def ev_from_winrate(self, rates, BJratio=1.5) :
+        winrate = rates[0]
+        tierate = rates[1]
+        loserate = rates[2]
+        BJwinrate = rates[3]
+
+        ev = winrate - loserate + BJratio*BJwinrate
+        return ev
+
+    # Optimistic EV. Only considering the bust and BJ ratios, returns the best EV you can hope for
+    def ev_limit_by_bust(self, rates, BJratio=1.5) :
+        BJwinrate = rates[3]
+        bustrate = rates[4]
+        fake_winrate = 1.0 - (bustrate + BJwinrate)
+
+        fake_ev = fake_winrate - bustrate + BJratio*BJwinrate
+
+        return fake_ev
 
 class StatChart(object) :
     """
@@ -762,6 +892,7 @@ class StatChart(object) :
 
     def add_to_map(self, key, stat_score) :
         self.map_of_stat_scores[key] = stat_score
+
 
 class Game(object):
     """
