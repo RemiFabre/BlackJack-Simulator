@@ -365,8 +365,22 @@ class Player(object):
         else :
             score = Score(start_values[0] + start_values[1], 1.0, 0.0)
 
-        print("EV with Score method : ", score.EV(dealer_stat_score))
-        print("ideal EV : ", score.ideal_EV(dealer_stat_score, new_count, new_nb_cards))
+        stand_EV = score.EV(dealer_stat_score)
+        ideal_EV_results = score.ideal_EV(dealer_stat_score, new_count, new_nb_cards)
+        double_EV = score.double_EV(dealer_stat_score, new_count, new_nb_cards)
+        print("stand_EV : ", stand_EV)
+        print("double_EV = ", double_EV)
+        print("ideal EV : ", ideal_EV_results)
+
+        ideal_call = "STAND"
+        max_EV = ideal_EV_results[0]
+        if (abs(stand_EV - max_EV) > RIDICULOUS_PROBA) :
+            ideal_call = "HIT"
+        if(double_EV > max_EV) :
+            ideal_call = "DOUBLE"
+            max_EV = double_EV
+        print(ideal_call, " for EV : ", max_EV)
+
         input("Wait for it")
         stat_card = StatCard(new_count, new_nb_cards)
         new_count, new_nb_cards = stat_card.get_new_count()
@@ -549,13 +563,16 @@ class Score(object) :
     """
     Represents a single score among [2, 3, ..., 21, BlackJack, Busted].
     """
-    def __init__(self, value, proba, soft_ace_proba) :
+    def __init__(self, value, proba, soft_ace_proba, is_single_card=False) :
         self.value = value
         self.proba = proba
         self.soft_ace_proba = soft_ace_proba
+        self.is_single_card = is_single_card
 
     def get_stat_score(self) :
         stat_score = StatScore(self.value)
+        if (not(self.is_single_card) and stat_score.nb_cards_in_hand < 2) :
+            stat_score.nb_cards_in_hand = 2
         # Clearing the soft_ace_probas and setting it again if this is a soft_score
         for i in range(21) :
             stat_score.soft_ace_proba[i+1] = 0.0
@@ -599,10 +616,10 @@ class Score(object) :
     # as a verification measure :
     # output = [EV, sum of probas that should be 1, number of calls]
     def ideal_EV(self, dealer_stat_score, new_count, new_nb_cards) :
-        ev_without_hit = self.EV(dealer_stat_score)
+        EV_without_hit = self.EV(dealer_stat_score)
         if self.value == 21 or self.value == BUSTED or self.value == BLACKJACK :
             # We're stopping here no matter what
-            return [ev_without_hit, self.proba, 1]
+            return [EV_without_hit, self.proba, 1]
         else :
             # Turning into a StatScore
             stat_score = self.get_stat_score()
@@ -615,10 +632,10 @@ class Score(object) :
             # Checking if hitting a card is an obvious disaster :
             rates = stat_score.winrate_vs_statvalue(dealer_stat_score)
             optimistic_ev = stat_score.ev_limit_by_bust(rates)
-            if (optimistic_ev <= ev_without_hit) :
+            if (optimistic_ev <= EV_without_hit) :
                 # No point in calculating the actual hit ev, it'll be below the stand ev
                 #print("no point in going further, optimistic ev = ", optimistic_ev)
-                return [ev_without_hit, self.proba, 1]
+                return [EV_without_hit, self.proba, 1]
 
             # Checks each individual value's EV
             EV_sum = 0.0
@@ -630,12 +647,28 @@ class Score(object) :
                 # Creating a Score that will be investigated on its own
                 new_score = Score(v, self.proba*stat_score.values[v], stat_score.soft_ace_proba[v])
                 # If we stand on the current value, the EV is known :
-                ev_stand = new_score.EV(dealer_stat_score)
+                EV_stand = new_score.EV(dealer_stat_score)
                 results = new_score.ideal_EV(dealer_stat_score, new_count, new_nb_cards)
-                EV_sum = EV_sum + new_score.proba*max(ev_stand, results[0])
+                EV_sum = EV_sum + new_score.proba*max(EV_stand, results[0])
                 proba_sum = proba_sum + results[1]
                 nb_calls = nb_calls + results[2]
-            return [EV_sum, proba_sum, nb_calls]
+            return [max(EV_without_hit, EV_sum), proba_sum, nb_calls]
+
+    # Returns the EV expected when doubling down (bet is x2 but you must draw 1 card and 1 card only)
+    def double_EV(self, dealer_stat_score, new_count, new_nb_cards) :
+        # Turning into a StatScore
+        stat_score = self.get_stat_score()
+
+        # Hitting a statistical card
+        stat_card = StatCard(new_count, new_nb_cards)
+        new_count, new_nb_cards = stat_card.get_new_count()
+        card_values = stat_card.get_card_values()
+        stat_score.draw_card(card_values)
+
+        rates = stat_score.winrate_vs_statvalue(dealer_stat_score)
+        print("DOUBLE STAT SCORE : ", stat_score)
+        
+        return 2*stat_score.ev_from_winrate(rates)
 
 
 class StatScore(object) :
