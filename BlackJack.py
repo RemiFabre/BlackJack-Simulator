@@ -27,6 +27,7 @@ DECK_SIZE = 52.0
 CARDS_ORDER = ["Ace", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King"]
 CARDS = {"Ace": 11, "Two": 2, "Three": 3, "Four": 4, "Five": 5, "Six": 6, "Seven": 7, "Eight": 8, "Nine": 9, "Ten": 10, "Jack": 10, "Queen": 10, "King": 10}
 VALUE_TO_NAME = {11 : "Ace", 2 : "Two", 3 : "Three", 4 : "Four", 5 : "Five", 6 : "Six", 7 : "Seven", 8 : "Eight", 9 : "Nine", 10 : "Ten"}
+y = {11 : "Ace", 2 : "Two", 3 : "Three", 4 : "Four", 5 : "Five", 6 : "Six", 7 : "Seven", 8 : "Eight", 9 : "Nine", 10 : "Ten"}
 BASIC_OMEGA_II = {"Ace": 0, "Two": 1, "Three": 1, "Four": 2, "Five": 2, "Six": 2, "Seven": 1, "Eight": 0, "Nine": -1, "Ten": -2, "Jack": -2, "Queen": -2, "King": -2}
 COUNT = {"Ace": SHOE_SIZE*4, "Two": SHOE_SIZE*4, "Three": SHOE_SIZE*4, "Four": SHOE_SIZE*4, "Five": SHOE_SIZE*4, "Six": SHOE_SIZE*4, "Seven": SHOE_SIZE*4, "Eight": SHOE_SIZE*4, "Nine": SHOE_SIZE*4, "Ten": SHOE_SIZE*4, "Jack": SHOE_SIZE*4, "Queen": SHOE_SIZE*4, "King": SHOE_SIZE*4}
 nb_cards = DECK_SIZE*SHOE_SIZE
@@ -679,9 +680,56 @@ class Score(object) :
 
         rates = stat_score.winrate_vs_statvalue(dealer_stat_score)
         print("DOUBLE STAT SCORE : ", stat_score)
-        
+
         return 2*stat_score.ev_from_winrate(rates)
 
+    @staticmethod
+    def get_maps_of_scores(stat_card1, stat_card2) :
+        """
+        Returns 3 maps with each possible score and its probability : hard scores, soft scores and pairs.
+        """
+        map_of_hard_scores = {}
+        map_of_soft_scores = {}
+        map_of_pair_scores = {}
+
+        for i in range(16) :
+            #from 5 to 20 (cos 4 can only be a pair)
+            value = i+5
+            score = Score(value, 0.0, 0.0)
+            map_of_hard_scores[value] = score
+
+        for i in range(9) :
+            #from 13 to 21
+            value = i+13
+            score = Score(value, 0.0, 100.0)
+            map_of_soft_scores[value] = score
+        score = Score(BLACKJACK, 0.0, 100.0)
+        map_of_soft_scores[BLACKJACK] = score
+
+        for i in range(10) :
+            #from 2 to 11 (saving only the first value)
+            value = i+2
+            score = Score(value, 0.0, 0.0)
+            map_of_pair_scores[value] = score
+
+        sum = 0.0
+        for v1 in stat_card1 :
+            p1 = stat_card1[v1]
+            for v2 in stat_card2 :
+                p2 = stat_card2[v2]
+                value = v1 + v2
+                proba = p1*p2
+                sum = sum + proba
+                if (v1 == v2) :
+                    # Its a pair
+                    map_of_pair_scores[v1].proba = map_of_pair_scores[v1].proba + proba
+                elif (v1 == 11 or v2 == 11) :
+                    # Its a soft score
+                    map_of_soft_scores[value].proba = map_of_soft_scores[value].proba + proba
+                else :
+                    map_of_hard_scores[value].proba = map_of_hard_scores[value].proba + proba
+
+        return map_of_hard_scores, map_of_soft_scores, map_of_pair_scores
 
 class StatScore(object) :
     """
@@ -939,6 +987,51 @@ class StatChart(object) :
         self.map_of_stat_scores[key] = stat_score
 
 
+class StrategyLine(object) :
+    """
+    Array representing the ideal strategy for 1 (player) Score against any dealer's up card (cols)
+    """
+    def __init__(self, player_score):
+        self.player_score = player_score
+        self.strategy = {}
+
+    #Expects strat = [Ideal_option, EV]
+    def append(self, dealer_value, strat) :
+        self.strategy[dealer_value] = strat
+
+class StrategyChart(object) :
+    """
+    Chart Representing the ideal strategy for any score (rows) against any dealer's up card (cols)
+    """
+    def __init__(self, dealer_card_values):
+        self.map_of_strategy_lines = {}
+        self.dealer_card_values = dealer_card_values
+
+    def __str__(self):
+        s = "\n"
+        data = []
+
+        header = ["Player\Dealer "]
+        EVs = []
+        # Creating the header from the dealer's stats
+        for d in self.dealer_card_values :
+            header.append(str(d) + " (" + "{0:.1f}".format(100*dealer_card_values[d])  + ")")
+
+        for p in self.map_of_strategy_lines :
+            # The first col is the value of player's score and its proba
+            EVs.append(str(p) + " (" + "{0:.1f}".format(100*player_card_values[p])  + ")")
+            for strat in self.map_of_strategy_lines :
+                EVs.append(self.map_of_strategy_lines[strat][0] + " (" + "{0:.1f}".self.map_of_strategy_lines[strat][1]  + ")")
+            data.append(EVs)
+            EVs = []
+
+        s = s + tabulate(data, headers=header, tablefmt="fancy_grid")
+        return s
+
+    def add_to_map(self, key, stat_score) :
+        self.map_of_stat_scores[key] = stat_score
+
+
 class Game(object):
     """
     A sequence of Blackjack Rounds that keeps track of total money won or lost
@@ -1011,6 +1104,45 @@ class Game(object):
             stat_chart.add_to_map(value, dealer_stat_score)
         print("StatChart for the Dealer (before drawing any card):", stat_chart)
 
+
+        # Creating a StrategyChart.
+        # First of, what are the odds of getting any value with the first 2 cards?
+        new_count = copy.deepcopy(COUNT)
+        new_nb_cards = nb_cards
+        stat_card1 = StatCard(new_count, new_nb_cards)
+        card_values1 = stat_card1.get_card_values()
+        new_count, new_nb_cards = stat_card.get_new_count()
+        stat_card2 = StatCard(new_count, new_nb_cards)
+        card_values2 = stat_card2.get_card_values()
+        map_of_hard_scores, map_of_soft_scores, map_of_pairs_scores = Score.get_maps_of_scores(card_values1, card_values2)
+
+        for score in map_of_hard_scores :
+            # Checking the best call and EV when the player has the score s against the dealer's value (up card)
+            player_value = map_of_hard_scores[score].value
+            strategy_line = StrategyLine(score)
+            # Hand made hands. TODO do better than this
+            if (player_value < 13) :
+                card1 = Card("Two", 2)
+                card2_value = player_value - 2
+                card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
+            else :
+                card1 = Card("Ten", 10)
+                card2_value = player_value - 10
+                card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
+
+            player_hand = Hand([card1, card2])
+            for i in range(10) :
+                value = i + 2
+                print("Player : ", player_hand, ", dealer = ", value)
+                # That dealer's stats for value are :
+                dealer_stat_score = stat_chart.map_of_stat_scores[value]
+                EVs = self.player.get_hand_EVs(player_hand, dealer_stat_score)
+                print ("Evs = ", EVs)
+                best_call = self.player.get_ideal_option(EVs)
+                print ("Best call : ", best_call)
+                strategy_line. TODO here !
+
+        input("ooo")
         dealer_hand = Hand([self.shoe.deal()])
         self.dealer.set_hand(dealer_hand)
 
