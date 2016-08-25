@@ -18,6 +18,7 @@ SHOE_PENETRATION = 0.25
 BET_SPREAD = 20.0
 BLACKJACK = "BJ"
 BUSTED = "BU"
+NOT_APPLICABLE = "N/A"
 
 NB_MAX_CARDS_IN_HAND = 8
 RIDICULOUS_PROBA = 0.005/100.0 # 1 / 20 000
@@ -274,7 +275,7 @@ class Player(object):
             # print "Playing Hand: %s" % hand
             self.play_hand(hand, shoe)
 
-    def play_hand(self, hand, shoe):
+    def play_hand(self, hand, shoe, dealer_stat_score=None, ideal=False):
         if hand.length() < 2:
             if hand.cards[0].name == "Ace":
                 hand.cards[0].value = 11
@@ -324,27 +325,24 @@ class Player(object):
         # print "Splitted %s" % hand
         self.play_hand(hand, shoe)
 
-    #TODO The dealer stat_score is assumed to be constant. This is not accurate since the card picked by the player affect the dealer's stats
-    def get_ideal_action(self, dealer_stat_score):
+    #TODO The dealer stat_score is assumed to be constant. This is not accurate since the card picked by the player affects the dealer's stats
+    def get_hand_EVs(self, hand, dealer_stat_score, forbid_split = False):
+        """
+        Returns a map with the 4 EVs : stand_EV, hit_EV, double_EV, split_EV. The keys are the strings S, H, D and P.
+        The best EV is the only one to be guaranteed to be calculated.
+        If any option is impossible or if the EV is not known,
+        the string NOT_APPLICABLE replaces the EV. This can be the case when stand is the best option and the hit
+        EV wasn't fully calculated in order to save some calculation time.
+        """
         new_count = copy.deepcopy(COUNT)
         new_nb_cards = nb_cards
         results_per_card = []
         ev_per_card = []
-        start_values = [int(self.hands[0].cards[0].value), int(self.hands[0].cards[1].value)]
-
-        print("Start_values = ", start_values)
-        stat_score = StatScore(start_values[0], stop_scores=[ 21, BLACKJACK, BUSTED])
-        # Adding the second card as a fake stat_card. e.g a 3 will be represented as a state card whose only non zero proba is on the card 3.
-
-        false_stat_card = StatCard(new_count, new_nb_cards, fake=True, simple_value=start_values[1])
-        # "Nine" -> 9
-        false_card_values = false_stat_card.get_card_values()
-        stat_score.draw_card(false_card_values)
-
-        results_per_card.append(stat_score.winrate_vs_statvalue(dealer_stat_score))
-        ev_per_card.append(stat_score.ev_from_winrate(results_per_card[-1]))
-        print(stat_score)
-        print("Without new card : ", results_per_card[-1], ", EV = ", ev_per_card[-1])
+        start_value = 0
+        nb_cards_in_hand = 0
+        for v in hand.cards :
+            start_value = start_value + v.value
+            nb_cards_in_hand = nb_cards_in_hand + 1
 
         # When the player is dealt its 2 cards, he has 4 options : stay, hit, double or split (in case of a pair).
         # Knowing the EV for the stay option is instantaneous. The current known score is compared to the dealers statistically estimated list of scores.
@@ -359,53 +357,67 @@ class Player(object):
         # - Must stand on 21, BLACKJACK and BUSTED
         # - Always hit if current score <= 11
         # - If after a hit, the optimistic EV is lower than the previous stand EV, then stand
-        # - If the premature EV of a hit is greater than the stand EV, then hit
-        if self.hands[0].soft() :
-            score = Score(start_values[0] + start_values[1], 1.0, 1.0)
+        # - If the premature EV of a hit is greater than the stand EV, then hit (but we still need to keep investigating the tree if we want the actual EV)
+        if hand.soft() :
+            print("(Soft) start_value = ", start_value, ", hand : ", hand)
+            score = Score(start_value, 1.0, 1.0)
         else :
-            score = Score(start_values[0] + start_values[1], 1.0, 0.0)
+            print("(Hard) start_value = ", start_value, ", hand : ", hand)
+            score = Score(start_value, 1.0, 0.0)
+
+        split_EV = NOT_APPLICABLE
+        if (forbid_split == False and len(hand.cards) == 2 and hand.cards[0].value == hand.cards[1].value) :
+            # We can split. We're going to call this very function with only the first current card and double the results.
+            # TODO This is an approximation since the second hand will be played with a different deck
+            print("Splitting hand !")
+            half_hand = Hand([hand.cards[0]])
+            EVs = self.get_hand_EVs(half_hand, dealer_stat_score, forbid_split = True)
+            split_EV = self.get_ideal_option(EVs)[1]
+
+        double_EV = NOT_APPLICABLE
+        if (score.value >= 9 and score.value <= 11) :
+            double_EV = score.double_EV(dealer_stat_score, new_count, new_nb_cards)
 
         stand_EV = score.EV(dealer_stat_score)
         ideal_EV_results = score.ideal_EV(dealer_stat_score, new_count, new_nb_cards)
-        double_EV = score.double_EV(dealer_stat_score, new_count, new_nb_cards)
+
         print("stand_EV : ", stand_EV)
-        print("double_EV = ", double_EV)
         print("ideal EV : ", ideal_EV_results)
+        print("double_EV = ", double_EV)
+        print("split_EV = ", split_EV)
 
-        ideal_call = "STAND"
         max_EV = ideal_EV_results[0]
-        if (abs(stand_EV - max_EV) > RIDICULOUS_PROBA) :
-            ideal_call = "HIT"
-        if(double_EV > max_EV) :
-            ideal_call = "DOUBLE"
-            max_EV = double_EV
-        print(ideal_call, " for EV : ", max_EV)
+        hit_EV = NOT_APPLICABLE
+        if (max_EV > stand_EV) :
+            hit_EV = max_EV
 
-        input("Wait for it")
-        stat_card = StatCard(new_count, new_nb_cards)
-        new_count, new_nb_cards = stat_card.get_new_count()
-        #print ("Stat_card = ", stat_card)
-        # "Nine" -> 9
-        card_values = stat_card.get_card_values()
-        stat_score.draw_card(card_values)
-        results_per_card.append(stat_score.winrate_vs_statvalue(dealer_stat_score))
-        ev_per_card.append(stat_score.ev_from_winrate(results_per_card[-1]))
-        print(stat_score)
-        print("With new card : ", results_per_card[-1], ", EV = ", ev_per_card[-1])
+        result = {}
+        result["S"] = stand_EV
+        result["H"] = hit_EV
+        result["D"] = double_EV
+        result["P"] = split_EV
+        return result
 
-        stat_card = StatCard(new_count, new_nb_cards)
-        new_count, new_nb_cards = stat_card.get_new_count()
-        #print ("Stat_card = ", stat_card)
-        # "Nine" -> 9
-        card_values = stat_card.get_card_values()
-        stat_score.draw_card(card_values)
-        results_per_card.append(stat_score.winrate_vs_statvalue(dealer_stat_score))
-        ev_per_card.append(stat_score.ev_from_winrate(results_per_card[-1]))
-        print(stat_score)
-        print("With new card : ", results_per_card[-1], ", EV = ", ev_per_card[-1])
-
-        print("results_per_card = ", results_per_card)
-        print("ev_per_card = ", ev_per_card)
+    def get_ideal_option(self, EVs) :
+        """
+        Return [Ideal_option, EV]. Ideal_option can be : S, H, D, P.
+        """
+        first = True
+        best_option = "None?"
+        max_EV = 0.0
+        for o in EVs :
+            if (EVs[o] != NOT_APPLICABLE and first) :
+                first = False
+                best_option = o
+                max_EV = EVs[o]
+            elif (EVs[o] != NOT_APPLICABLE) :
+                if (max_EV < EVs[o]) :
+                    best_option = o
+                    max_EV = EVs[o]
+        if (first) :
+            print("No option seems to be possible in get_ideal_option ?")
+            sys.exit()
+        return [best_option, max_EV]
 
 
 class Dealer(object):
@@ -1011,10 +1023,16 @@ class Game(object):
         print("\nStatScore for the Dealer after drawing a '", dealer_stat_score.start_value, "':")
         print(dealer_stat_score)
 
-        self.player.get_ideal_action(dealer_stat_score)
+        EVs = self.player.get_hand_EVs(player_hand, dealer_stat_score)
+        print ("Evs = ", EVs)
+
+        best_call = self.player.get_ideal_option(EVs)
+        print ("Best call : ", best_call)
+
         input("Continue ?")
 
-        self.player.play(self.shoe)
+        #self.player.play(self.shoe)
+        self.player.play_ideal(self.shoe, dealer_stat_score)
         self.dealer.play(self.shoe)
 
         # print ""
