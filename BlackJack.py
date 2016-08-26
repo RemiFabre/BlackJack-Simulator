@@ -582,6 +582,11 @@ class Score(object) :
         self.soft_ace_proba = soft_ace_proba
         self.is_single_card = is_single_card
 
+    def __str__(self):
+        s = "\n["
+        s += str(self.value) + ", " + str(self.proba) + ", " + str(self.soft_ace_proba) + "]"
+        return s
+
     def get_stat_score(self) :
         stat_score = StatScore(self.value)
         if (not(self.is_single_card) and stat_score.nb_cards_in_hand < 2) :
@@ -1014,22 +1019,23 @@ class StrategyChart(object) :
         header = ["Player\Dealer "]
         EVs = []
         # Creating the header from the dealer's stats
-        for d in self.dealer_card_values :
-            header.append(str(d) + " (" + "{0:.1f}".format(100*dealer_card_values[d])  + ")")
+        for d in self.dealer_card_values.values :
+            header.append(str(d) + " (" + "{0:.1f}".format(100*self.dealer_card_values.values[d])  + ")")
 
         for p in self.map_of_strategy_lines :
             # The first col is the value of player's score and its proba
-            EVs.append(str(p) + " (" + "{0:.1f}".format(100*player_card_values[p])  + ")")
-            for strat in self.map_of_strategy_lines :
-                EVs.append(self.map_of_strategy_lines[strat][0] + " (" + "{0:.1f}".self.map_of_strategy_lines[strat][1]  + ")")
+            print("Score : ", self.map_of_strategy_lines[p].player_score)
+            EVs.append(str(self.map_of_strategy_lines[p].player_score.value) + " (" + "{0:.1f}".format(100*self.map_of_strategy_lines[p].player_score.proba)  + ")")
+            for strat in self.map_of_strategy_lines[p].strategy :
+                EVs.append(self.map_of_strategy_lines[p].strategy[strat][0] + " (" + "{0:.1f}".format(100*self.map_of_strategy_lines[p].strategy[strat][1])  + ")")
             data.append(EVs)
             EVs = []
 
         s = s + tabulate(data, headers=header, tablefmt="fancy_grid")
         return s
 
-    def add_to_map(self, key, stat_score) :
-        self.map_of_stat_scores[key] = stat_score
+    def add_to_map(self, score, strategy_line) :
+        self.map_of_strategy_lines[score] = strategy_line
 
 
 class Game(object):
@@ -1115,11 +1121,12 @@ class Game(object):
         stat_card2 = StatCard(new_count, new_nb_cards)
         card_values2 = stat_card2.get_card_values()
         map_of_hard_scores, map_of_soft_scores, map_of_pairs_scores = Score.get_maps_of_scores(card_values1, card_values2)
+        strategy_chart = StrategyChart(dealer_stat_score)
 
-        for score in map_of_hard_scores :
+        for s in map_of_hard_scores :
             # Checking the best call and EV when the player has the score s against the dealer's value (up card)
-            player_value = map_of_hard_scores[score].value
-            strategy_line = StrategyLine(score)
+            player_value = map_of_hard_scores[s].value
+            strategy_line = StrategyLine(map_of_hard_scores[s])
             # Hand made hands. TODO do better than this
             if (player_value < 13) :
                 card1 = Card("Two", 2)
@@ -1140,8 +1147,12 @@ class Game(object):
                 print ("Evs = ", EVs)
                 best_call = self.player.get_ideal_option(EVs)
                 print ("Best call : ", best_call)
-                strategy_line. TODO here !
-
+                strategy_line.append(value, best_call)
+            # Adding the strategy_line into the strategy chart
+            strategy_chart.add_to_map(s, strategy_line)
+        print("Strategy chart : ", strategy_chart)
+        #TODO
+        print("check why dealer's up card is weird")
         input("ooo")
         dealer_hand = Hand([self.shoe.deal()])
         self.dealer.set_hand(dealer_hand)
