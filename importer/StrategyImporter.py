@@ -18,7 +18,7 @@ class StrategyImporter(object):
 		pair = 20
 
 		with open(self.player_file, 'rU') as player_csv:
-			reader = csv.DictReader(player_csv, delimiter = ';')
+			reader = csv.DictReader(player_csv, delimiter = ',')
 			for row in reader:
 				if hard >= 5:
 					self.hard_strategy[hard] = row

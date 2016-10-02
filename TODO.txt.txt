@@ -1,0 +1,3 @@
+- Blocks at AA vs A ?
+- Make the simulator work again. Fixed the ;->, in windows csv ? Weird though. Still, there is no 4 (cos it's double 2)
+--> Simulator working with the ideal strat :D Still have to fix the old, expert one.
