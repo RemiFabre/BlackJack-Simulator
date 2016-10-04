@@ -2,15 +2,13 @@
 import sys
 from random import shuffle
 
-# TODO replace tablefmt="" by tablefmt="fancy_grid" (lacked screen space in the USA
-# TODO the EV is calculated a ton of times against the same dealer's distribution. We could calculate it once and for all and refer to the results.
-# But, the exact solution would rather be to re-calculate the dealer's distribution every time...
 
 #import codecs
 #sys.stdout = codecs.getwriter("iso-8859-1")(sys.stdout, 'xmlcharrefreplace')
 # Type this in the windows console : chcp 65001
 #sigh : commented out because no lib and no internet available
 
+#sigh tablefmt="" <-> tablefmt=""
 import numpy as np
 #sigh import scipy.stats as stats
 import pylab as pl
@@ -20,12 +18,12 @@ from tabulate import tabulate
 from importer.StrategyImporter import StrategyImporter
 
 
-GAMES = 100
+GAMES = 1000
 # A game is a number of shoes played (the last hand might be shuffled in between though)
 NB_SHOES_PER_GAME = 1
 SHOE_SIZE = 6
 SHOE_PENETRATION = 0.75
-BET_SPREAD = 1 # 1 is no bet_spread Attention !#20.0
+BET_SPREAD = 20.0
 BLACKJACK = "BJ"
 BUSTED = "BU"
 NOT_APPLICABLE = "N/A"
@@ -409,12 +407,12 @@ class Player(object):
             # We can split. We're going to call this very function with only the first current card and double the results.
             # TODO This is a big approximation since the second hand will be played with a different deck AND we're not considering
             # the possibilities of re-splits at all (usualy you can play up to 4 hands). Big TODO here, quite easy imo.
-            print("Splitting hand !")
+            print("Trying to split hand...")
             half_hand = Hand([hand.cards[0]])
             # Todo the double after split (DAS) rule is equivalent to toggle the forbid_double flag here :
             EVs = self.get_hand_EVs(half_hand, dealer_stat_score, forbid_split = True, forbid_double = True)
             split_EV = 2*self.get_ideal_option(EVs)[1]
-            print("actual split_EV = ", split_EV)
+##            print("actual split_EV = ", split_EV)
 
         double_EV = NOT_APPLICABLE
         if (forbid_double == False and score.value >= MIN_DOUBLE and score.value <= MAX_DOUBLE) :
@@ -423,10 +421,10 @@ class Player(object):
         stand_EV = score.EV(dealer_stat_score, BJratio=1.5, debug=False)
         ideal_EV_results = score.ideal_EV(dealer_stat_score, new_count, new_nb_cards)
 
-        print("stand_EV : ", stand_EV)
-        print("ideal EV : ", ideal_EV_results)
-        print("double_EV = ", double_EV)
-        print("split_EV = ", split_EV)
+##        print("stand_EV : ", stand_EV)
+##        print("ideal EV : ", ideal_EV_results)
+##        print("double_EV = ", double_EV)
+##        print("split_EV = ", split_EV)
 
         max_EV = ideal_EV_results[0]
         hit_EV = NOT_APPLICABLE
@@ -746,7 +744,7 @@ class Score(object) :
         stat_score.draw_card(card_values)
 
         rates = stat_score.winrate_vs_statvalue(dealer_stat_score)
-        print("DOUBLE STAT SCORE : ", stat_score)
+        #print("DOUBLE STAT SCORE : ", stat_score)
 
         return 2*stat_score.ev_from_winrate(rates)
 
@@ -1190,7 +1188,7 @@ class Game(object):
 
     # Returns true if a reshuffle took place during the round
     def play_round(self):
-        if self.shoe.truecount() > 6:
+        if self.shoe.truecount() > 3: # TODO do better than this
             self.stake = BET_SPREAD
         else:
             self.stake = 1.0
