@@ -16,9 +16,28 @@ import matplotlib.pyplot as plt
 import copy
 from tabulate import tabulate
 from importer.StrategyImporter import StrategyImporter
+import logging
 
+LOG_FILENAME = 'results.log'
+#logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG) # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
-GAMES = 1000
+# create logger
+logger = logging.getLogger("fileLogger")
+logger.setLevel(logging.DEBUG)
+# create console handler and set level to debug
+ch = logging.FileHandler(LOG_FILENAME)
+ch.setLevel(logging.DEBUG)
+# create formatter
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+# add formatter to ch
+ch.setFormatter(formatter)
+# add ch to logger
+logger.addHandler(ch)
+
+logger.debug('Starting BlackJack.py...')
+
+MAX_CARDS_ALLOWED = 6 # If the player is dealt 6 cards, then he can't draw again. This should significantly reduce the calculation times (and some BJ sites also have a similar rule for actual play)
+GAMES = 10000
 # A game is a number of shoes played (the last hand might be shuffled in between though)
 NB_SHOES_PER_GAME = 1
 SHOE_SIZE = 6
@@ -397,10 +416,10 @@ class Player(object):
         # - If the premature EV of a hit is greater than the stand EV, then hit (but we still need to keep investigating the tree if we want the actual EV)
         if hand.soft() :
             print("(Soft) start_value = ", start_value, ", hand : ", hand)
-            score = Score(start_value, 1.0, 1.0)
+            score = Score(start_value, 1.0, 1.0, nb_cards_in_hand)
         else :
             print("(Hard) start_value = ", start_value, ", hand : ", hand)
-            score = Score(start_value, 1.0, 0.0)
+            score = Score(start_value, 1.0, 0.0, nb_cards_in_hand)
 
         split_EV = NOT_APPLICABLE
         if (forbid_split == False and len(hand.cards) == 2 and hand.cards[0].name == hand.cards[1].name) :
@@ -615,11 +634,11 @@ class Score(object) :
     """
     Represents a single score among [2, 3, ..., 21, BlackJack, Busted].
     """
-    def __init__(self, value, proba, soft_ace_proba, is_single_card=False) :
+    def __init__(self, value, proba, soft_ace_proba, nb_cards) :
         self.value = value
         self.proba = proba
         self.soft_ace_proba = soft_ace_proba
-        self.is_single_card = is_single_card
+        self.nb_cards = nb_cards
 
     def __str__(self):
         s = "\n["
@@ -628,7 +647,7 @@ class Score(object) :
 
     def get_stat_score(self) :
         stat_score = StatScore(self.value)
-        if (not(self.is_single_card) and stat_score.nb_cards_in_hand < 2) :
+        if (self.nb_cards > 1 and stat_score.nb_cards_in_hand < 2) :
             stat_score.nb_cards_in_hand = 2
         # Clearing the soft_ace_probas and setting it again if this is a soft_score
         for i in range(21) :
@@ -686,7 +705,7 @@ class Score(object) :
     # output = [EV, sum of probas that should be 1, number of calls]
     def ideal_EV(self, dealer_stat_score, new_count, new_nb_cards) :
         EV_without_hit = self.EV(dealer_stat_score)
-        if self.value == 21 or self.value == BUSTED or self.value == BLACKJACK :
+        if self.value == 21 or self.value == BUSTED or self.value == BLACKJACK or self.nb_cards >= MAX_CARDS_ALLOWED :
             # We're stopping here no matter what
             #print("Score : ", self.value, ". Returning : ", [EV_without_hit, self.proba, 1])
             return [EV_without_hit, self.proba, 1]
@@ -717,7 +736,7 @@ class Score(object) :
                 if stat_score.values[v] == 0.0 :
                     continue
                 # Creating a Score that will be investigated on its own
-                new_score = Score(v, self.proba*stat_score.values[v], stat_score.soft_ace_proba[v])
+                new_score = Score(v, self.proba*stat_score.values[v], stat_score.soft_ace_proba[v], self.nb_cards + 1)
                 # If we stand on the current value, the EV is known :
                 EV_stand = new_score.EV(dealer_stat_score)
                 results = new_score.ideal_EV(dealer_stat_score, new_count, new_nb_cards)
@@ -760,24 +779,24 @@ class Score(object) :
         for i in range(16) :
             #from 5 to 20 (cos 4 can only be a pair)
             value = i+5
-            score = Score(value, 0.0, 0.0)
+            score = Score(value, 0.0, 0.0, 2)
             map_of_hard_scores[value] = score
 
         for i in range(9) :
             #from 13 to 21
             value = i+13
-            score = Score(value, 0.0, 100.0)
+            score = Score(value, 0.0, 100.0, 2)
             map_of_soft_scores[value] = score
-        score = Score(BLACKJACK, 0.0, 100.0)
+        score = Score(BLACKJACK, 0.0, 100.0, 2)
         map_of_soft_scores[BLACKJACK] = score
 
         for i in range(10) :
             #from 2 to 11 (saving only the first value)
             value = i+2
             if (value == 11) :
-                score = Score(value, 0.0, 100.0)
+                score = Score(value, 0.0, 100.0, 2)
             else :
-                score = Score(value, 0.0, 0.0)
+                score = Score(value, 0.0, 0.0, 2)
             map_of_pair_scores[value] = score
 
         sum = 0.0
@@ -1390,18 +1409,20 @@ if __name__ == "__main__":
 
         print("WIN for Game no. %d: %s (%s bet)" % (g + 1, "{0:.2f}".format(game.get_money()), "{0:.2f}".format(game.get_bet())))
 
-    sume = 0.0
-    total_bet = 0.0
-    for value in moneys:
-        sume += value
-    for value in bets:
-        total_bet += value
+        sume = 0.0
+        total_bet = 0.0
+        for value in moneys:
+        	sume += value
+        for value in bets:
+        	total_bet += value
 
-    print()
+        print()
 
-    print(float(nb_hands)/GAMES, " hands per game, on average")
-    print("{} hands, {} total bet".format(nb_hands, "{0:.2f}".format(total_bet)))
-    print("Overall winnings: {} (edge = {} %)".format("{0:.2f}".format(sume), "{0:.3f}".format(100.0*sume/total_bet)))
+        print(float(nb_hands)/GAMES, " hands per game, on average")
+        print("{} hands, {} total bet".format(nb_hands, "{0:.2f}".format(total_bet)))
+        print("Overall winnings: {} (edge = {} %)".format("{0:.2f}".format(sume), "{0:.3f}".format(100.0*sume/total_bet)))
+
+        logger.info("Game {} winnings: {}. Overall winnings: {} (edge = {} %). {} hands".format(g+1, "{0:.2f}".format(game.get_money()), "{0:.2f}".format(sume), "{0:.3f}".format(100.0*sume/total_bet), nb_hands))
 
     """ #sigh
     moneys = sorted(moneys)
