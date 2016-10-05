@@ -11,7 +11,7 @@ from random import shuffle
 #sigh tablefmt="" <-> tablefmt=""
 import numpy as np
 #sigh import scipy.stats as stats
-import pylab as pl
+#import pylab as pl
 import matplotlib.pyplot as plt
 import copy
 from tabulate import tabulate
@@ -84,7 +84,7 @@ class Card(object):
         self.name = name
         self.value = value
 
-    def __str__(self):
+    def __repr__(self):
         return "%s" % self.name
 
 
@@ -101,7 +101,7 @@ class Shoe(object):
         self.cards = self.init_cards()
         self.init_count()
 
-    def __str__(self):
+    def __repr__(self):
         s = ""
         for c in self.cards:
             s += "%s\n" % c
@@ -181,7 +181,7 @@ class Hand(object):
     def __init__(self, cards):
         self.cards = cards
 
-    def __str__(self):
+    def __repr__(self):
         h = ""
         for c in self.cards:
             h += "%s " % c
@@ -308,6 +308,7 @@ class Player(object):
             # print "Playing Hand: %s" % hand
             self.play_hand(hand, shoe, ideal_play = ideal_play, dealer = dealer)
 
+    @profile
     def play_hand(self, hand, shoe, ideal_play=False, dealer=None):
         if hand.length() < 2:
             if hand.cards[0].name == "Ace":
@@ -381,6 +382,7 @@ class Player(object):
 
     #TODO The dealer stat_score is assumed to be constant. This is not accurate since the card picked by the player affects the dealer's stats
     #This is sufficiently impactfull to make some noticeable changes in the optimal chart for single decked games
+    #@profile
     def get_hand_EVs(self, hand, dealer_stat_score, forbid_split = False, forbid_double = False):
         """
         Returns a map with the 4 EVs : stand_EV, hit_EV, double_EV, split_EV. The keys are the strings S, H, D and P.
@@ -593,7 +595,7 @@ class StatCard(object) :
             if (simple_value == 10) :
                     self.values["Ten"] = 1.0
 
-    def __str__(self):
+    def __repr__(self):
         s = "\n"
         data = []
 
@@ -640,7 +642,7 @@ class Score(object) :
         self.soft_ace_proba = soft_ace_proba
         self.nb_cards = nb_cards
 
-    def __str__(self):
+    def __repr__(self):
         s = "\n["
         s += str(self.value) + ", " + str(self.proba) + ", " + str(self.soft_ace_proba) + "]"
         return s
@@ -871,7 +873,7 @@ class StatScore(object) :
             print("Wrong initializer in StatScore : '", start_value, "'")
             sys.exit()
 
-    def __str__(self):
+    def __repr__(self):
         s = "\n"
         data = []
 
@@ -1055,7 +1057,7 @@ class StatChart(object) :
         self.map_of_stat_scores = {}
         self.card_values = card_values
 
-    def __str__(self):
+    def __repr__(self):
         s = "\n"
         data = []
 
@@ -1094,7 +1096,7 @@ class StrategyLine(object) :
     def append(self, dealer_value, strat) :
         self.strategy[dealer_value] = strat
 
-    def __str__(self):
+    def __repr__(self):
         s = "\n"
         data = []
 
@@ -1125,7 +1127,7 @@ class StrategyChart(object) :
         for d in self.dealer_card_values :
             print(str(d) + " (" + "{0:.1f}".format(100*self.dealer_card_values[d])  + ")")
 
-    def __str__(self):
+    def __repr__(self):
         s = "\n"
         data = []
 
