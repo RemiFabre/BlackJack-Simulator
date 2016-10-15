@@ -811,8 +811,8 @@ class Score(object) :
         map_of_soft_scores = {}
         map_of_pair_scores = {}
 
-        for i in range(15) :
-            #from 5 to 19 (cos 4 can only be a pair and 20 either soft or a pair)
+        for i in range(16) :
+            #from 5 to 20 (cos 4 can only be a pair. 20 doesn't have to be a pair, e.g JQ)
             value = i+5
             score = Score(value, 0.0, 0.0, 2)
             map_of_hard_scores[value] = score
@@ -835,17 +835,20 @@ class Score(object) :
             map_of_pair_scores[value] = score
 
         sum = 0.0
-        for v1 in stat_card1 :
-            p1 = stat_card1[v1]
-            for v2 in stat_card2 :
-                p2 = stat_card2[v2]
+        for c1 in stat_card1.values :
+            p1 = stat_card1.values[c1]
+            for c2 in stat_card2.values :
+                p2 = stat_card2.values[c2]
+                # Going from nine to 9
+                v1 = CARDS[c1]
+                v2 = CARDS[c2]
                 value = v1 + v2
                 proba = p1*p2
                 sum = sum + proba
                 if (value == 21) :
                     # Only one way to get 21 with 2 cards
                     value = BLACKJACK
-                if (v1 == v2) :
+                if (c1 == c2) :
                     # Its a pair
                     map_of_pair_scores[v1].proba = map_of_pair_scores[v1].proba + proba
                 elif (v1 == 11 or v2 == 11) :
@@ -1396,31 +1399,32 @@ class Game(object):
         new_count = copy.deepcopy(COUNT)
         new_nb_cards = nb_cards
         stat_card1 = StatCard(new_count, new_nb_cards)
-        card_values1 = stat_card1.get_card_values()
+        #card_values1 = stat_card1.get_card_values()
         new_count, new_nb_cards = stat_card.get_new_count()
         stat_card2 = StatCard(new_count, new_nb_cards)
-        card_values2 = stat_card2.get_card_values()
-        map_of_hard_scores, map_of_soft_scores, map_of_pair_scores = Score.get_maps_of_scores(card_values1, card_values2)
+        #card_values2 = stat_card2.get_card_values()
+        map_of_hard_scores, map_of_soft_scores, map_of_pair_scores = Score.get_maps_of_scores(stat_card1, stat_card2)
         
-        
+        '''
         strategy_chart_hard = self.calculate_strategy_chart_hard(map_of_hard_scores, card_values, stat_chart)
         print("Strategy chart hard : ", strategy_chart_hard)
         total_hard_EV, sum_of_probas_hard = strategy_chart_hard.get_total_EV()
         print("Total hard EV : {}, sum of probas : {}".format("{0:.2f}".format(100*total_hard_EV), "{0:.2f}".format(100*sum_of_probas_hard)))
         input("ooo")
         '''
+        '''
         strategy_chart_soft = self.calculate_strategy_chart_soft(map_of_soft_scores, card_values, stat_chart)
         print("Strategy chart soft : ", strategy_chart_soft)
         total_soft_EV, sum_of_probas_soft = strategy_chart_soft.get_total_EV()
         print("Total soft EV : {}, sum of probas : {}".format("{0:.2f}".format(100*total_soft_EV), "{0:.2f}".format(100*sum_of_probas_soft)))
         input("ooo")
-        
+        '''
         strategy_chart_pair = self.calculate_strategy_chart_pair(map_of_pair_scores, card_values, stat_chart)
         print("Strategy chart pair : ", strategy_chart_pair)
         total_pair_EV, sum_of_probas_pair = strategy_chart_pair.get_total_EV()
         print("Total pair EV : {}, sum of probas : {}".format("{0:.2f}".format(100*total_pair_EV), "{0:.2f}".format(100*sum_of_probas_pair)))
         input("ooo")
-        '''
+        
         # Drawing the actual cards
         dealer_hand = Hand([self.shoe.deal()])
         self.dealer.set_hand(dealer_hand)

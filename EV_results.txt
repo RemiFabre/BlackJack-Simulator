@@ -1,0 +1,5 @@
+Total hard EV : -9.03, sum of probas : 78.11
+Total pair EV : 0.87, sum of probas : 7.69
+Total soft EV : 7.39, sum of probas : 14.20
+
+Grand total : -0.7700 (wizard of odds says 0.6231), sum of probas : 100.00. GG WP
