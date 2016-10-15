@@ -36,7 +36,7 @@ logger.addHandler(ch)
 
 logger.debug('Starting BlackJack.py...')
 
-MAX_CARDS_ALLOWED = 6 # If the player is dealt 6 cards, then he can't draw again. This should significantly reduce the calculation times (and some BJ sites also have a similar rule for actual play)
+MAX_CARDS_ALLOWED =6 # If the player is dealt 6 cards, then he can't draw again. This should significantly reduce the calculation times (and some BJ sites also have a similar rule for actual play)
 GAMES = 10000
 # A game is a number of shoes played (the last hand might be shuffled in between though)
 NB_SHOES_PER_GAME = 1
@@ -308,7 +308,7 @@ class Player(object):
             # print "Playing Hand: %s" % hand
             self.play_hand(hand, shoe, ideal_play = ideal_play, dealer = dealer)
 
-    @profile
+    #@profile
     def play_hand(self, hand, shoe, ideal_play=False, dealer=None):
         if hand.length() < 2:
             if hand.cards[0].name == "Ace":
@@ -383,7 +383,7 @@ class Player(object):
     #TODO The dealer stat_score is assumed to be constant. This is not accurate since the card picked by the player affects the dealer's stats
     #This is sufficiently impactfull to make some noticeable changes in the optimal chart for single decked games
     #@profile
-    def get_hand_EVs(self, hand, dealer_stat_score, forbid_split = False, forbid_double = False):
+    def get_hand_EVs(self, hand, dealer_stat_score, forbid_split = False, forbid_double = False, no_bj = False):
         """
         Returns a map with the 4 EVs : stand_EV, hit_EV, double_EV, split_EV. The keys are the strings S, H, D and P.
         The best EV is the only one to be guaranteed to be calculated.
@@ -431,21 +431,30 @@ class Player(object):
             print("Trying to split hand...")
             half_hand = Hand([hand.cards[0]])
             # Todo the double after split (DAS) rule is equivalent to toggle the forbid_double flag here :
-            EVs = self.get_hand_EVs(half_hand, dealer_stat_score, forbid_split = True, forbid_double = True)
+            if (hand.cards[0].name == "Ace") :
+                # Can't hit split aces rule (this is equivalent to considering the double option and dividing its EV by 2)
+                # TODO we're calculatin more than what we need here, we only need the double EV.
+                EVs = self.get_hand_EVs(half_hand, dealer_stat_score, forbid_split = True, forbid_double = False, no_bj = True)
+                hit_only_once_ev = EVs["D"]/2
+                print("hit_only_once_ev = ", hit_only_once_ev)
+                EVs["D"] = NOT_APPLICABLE
+                EVs["H"] = hit_only_once_ev
+            else :
+                EVs = self.get_hand_EVs(half_hand, dealer_stat_score, forbid_split = True, forbid_double = True, no_bj = True)
             split_EV = 2*self.get_ideal_option(EVs)[1]
 ##            print("actual split_EV = ", split_EV)
 
         double_EV = NOT_APPLICABLE
         if (forbid_double == False and score.value >= MIN_DOUBLE and score.value <= MAX_DOUBLE) :
-            double_EV = score.double_EV(dealer_stat_score, new_count, new_nb_cards)
+            double_EV = score.double_EV(dealer_stat_score, new_count, new_nb_cards, no_bj = no_bj)
 
-        stand_EV = score.EV(dealer_stat_score, BJratio=1.5, debug=False)
-        ideal_EV_results = score.ideal_EV(dealer_stat_score, new_count, new_nb_cards)
+        stand_EV = score.EV(dealer_stat_score, BJratio=1.5, debug=False, no_bj = no_bj)
+        ideal_EV_results = score.ideal_EV(dealer_stat_score, new_count, new_nb_cards, no_bj = no_bj)
 
-##        print("stand_EV : ", stand_EV)
-##        print("ideal EV : ", ideal_EV_results)
-##        print("double_EV = ", double_EV)
-##        print("split_EV = ", split_EV)
+        print("stand_EV : ", stand_EV)
+        print("ideal EV : ", ideal_EV_results)
+        print("double_EV = ", double_EV)
+        print("split_EV = ", split_EV)
 
         max_EV = ideal_EV_results[0]
         hit_EV = NOT_APPLICABLE
@@ -660,7 +669,7 @@ class Score(object) :
         
         return stat_score
 
-    def EV(self, o_stat_value, BJratio=1.5, debug=False) :
+    def EV(self, o_stat_value, BJratio=1.5, debug=False, no_bj=False) :
         # o_stat_value = opponent's stat_value
         winrate = 0.0
         tierate = 0.0
@@ -670,6 +679,10 @@ class Score(object) :
         score = self.value
         p = self.proba
         sum_of_proba = 0
+        
+        if (no_bj and (score == BLACKJACK)) :
+            print("No bj ;''''(")
+            score = 21
 
         for o_score in o_stat_value.values :
             o_p = o_stat_value.values[o_score]
@@ -705,8 +718,12 @@ class Score(object) :
     # Returns the EV of the optimal play. The sum of probas and the number of calls are returned too,
     # as a verification measure :
     # output = [EV, sum of probas that should be 1, number of calls]
-    def ideal_EV(self, dealer_stat_score, new_count, new_nb_cards) :
-        EV_without_hit = self.EV(dealer_stat_score)
+    def ideal_EV(self, dealer_stat_score, new_count, new_nb_cards, no_bj=False) :
+        if (no_bj) :
+            EV_without_hit = self.EV(dealer_stat_score, 1.5, False, no_bj=no_bj)
+        else :
+            EV_without_hit = self.EV(dealer_stat_score)
+
         if self.value == 21 or self.value == BUSTED or self.value == BLACKJACK or self.nb_cards >= MAX_CARDS_ALLOWED :
             # We're stopping here no matter what
             #print("Score : ", self.value, ". Returning : ", [EV_without_hit, self.proba, 1])
@@ -741,7 +758,7 @@ class Score(object) :
                 new_score = Score(v, self.proba*stat_score.values[v], stat_score.soft_ace_proba[v], self.nb_cards + 1)
                 # If we stand on the current value, the EV is known :
                 EV_stand = new_score.EV(dealer_stat_score)
-                results = new_score.ideal_EV(dealer_stat_score, new_count, new_nb_cards)
+                results = new_score.ideal_EV(dealer_stat_score, new_count, new_nb_cards, no_bj = no_bj)
                 # No need to multiply by new_score.proba since all the EVs calculated are already dependy on the scores proba
                 EV_sum = EV_sum + max(EV_stand, results[0])
                 proba_sum = proba_sum + results[1]
@@ -754,7 +771,7 @@ class Score(object) :
             return [max(EV_without_hit, EV_sum), proba_sum, nb_calls]
 
     # Returns the EV expected when doubling down (bet is x2 but you must draw 1 card and 1 card only)
-    def double_EV(self, dealer_stat_score, new_count, new_nb_cards) :
+    def double_EV(self, dealer_stat_score, new_count, new_nb_cards, no_bj = False) :
         # Turning into a StatScore
         stat_score = self.get_stat_score()
 
@@ -764,7 +781,7 @@ class Score(object) :
         card_values = stat_card.get_card_values()
         stat_score.draw_card(card_values)
 
-        rates = stat_score.winrate_vs_statvalue(dealer_stat_score)
+        rates = stat_score.winrate_vs_statvalue(dealer_stat_score, no_bj = no_bj)
         #print("DOUBLE STAT SCORE : ", stat_score)
 
         return 2*stat_score.ev_from_winrate(rates)
@@ -996,7 +1013,8 @@ class StatScore(object) :
     # Returns [winrate, tierate, loserate, BJwinrate, bustrate]. The sum of the first 4 values should be 1.
     # The current statvalue loses if it busts, therefore this function should be used from
     # the player's statvalue and not from the Dealer's.
-    def winrate_vs_statvalue(self, o_stat_value) :
+    #TODO this function is 80% a duplicate of .EV( ...
+    def winrate_vs_statvalue(self, o_stat_value, no_bj = False) :
         # o_stat_value = opponent's stat_value
         winrate = 0.0
         tierate = 0.0
@@ -1005,6 +1023,8 @@ class StatScore(object) :
         bustrate = 0.0
         for score in self.values :
             p = self.values[score]
+            if (no_bj and (score == BLACKJACK)) :
+                score = 21
             for o_score in o_stat_value.values :
                 o_p = o_stat_value.values[o_score]
                 if (score == BUSTED) :
@@ -1214,63 +1234,81 @@ class Game(object):
         else:
             self.stake = 1.0
 
-##        # Checking out the dealers stats before the cards are dealt :
-##        stat_card = StatCard(COUNT, nb_cards)
-##        card_values = stat_card.get_card_values()
-##        stat_chart = StatChart(card_values)
-##
-##        for i in range(10) :
-##            value = i + 2
-##            dealer_stat_score = self.dealer.get_probabilities(value)
-##            stat_chart.add_to_map(value, dealer_stat_score)
-##        print("StatChart for the Dealer (before drawing any card):", stat_chart)
-##
-##        ''' TEMP TODO Attention ! xxx
-##        # End of TEMP TODO Attention !
-##        '''
-##        
-##        # Creating a StrategyChart.
-##        # First of, what are the odds of getting any value with the first 2 cards?
-##        new_count = copy.deepcopy(COUNT)
-##        new_nb_cards = nb_cards
-##        stat_card1 = StatCard(new_count, new_nb_cards)
-##        card_values1 = stat_card1.get_card_values()
-##        new_count, new_nb_cards = stat_card.get_new_count()
-##        stat_card2 = StatCard(new_count, new_nb_cards)
-##        card_values2 = stat_card2.get_card_values()
-##        map_of_hard_scores, map_of_soft_scores, map_of_pair_scores = Score.get_maps_of_scores(card_values1, card_values2)
-##        
-##        strategy_chart_pair = StrategyChart({2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0}) # TODO : estimate the overall probability of each score for the dealer (quite easy)
-##        for s in map_of_pair_scores :
-##            # Checking the best call and EV when the player has the score s against the dealer's value (up card)
-##            player_value = map_of_pair_scores[s].value
-##            strategy_line = StrategyLine(map_of_pair_scores[s])
-##            # Hand made hands.
-##            card_value = player_value
-##            card1 = Card(VALUE_TO_NAME[card_value], card_value)
-##            if (player_value == 11) :
-##                card2 = Card(VALUE_TO_NAME[card_value], 1)
-##            else :
-##                card2 = Card(VALUE_TO_NAME[card_value], card_value)
-##            
-##            player_hand = Hand([card1, card2])
-##            for i in range(10) :
-##                value = i + 2
-##                print("Player : ", player_hand, ", dealer = ", value)
-##                # That dealer's stats for value are :
-##                dealer_stat_score = stat_chart.map_of_stat_scores[value]
-##                EVs = self.player.get_hand_EVs(player_hand, dealer_stat_score)
-##                print ("Evs = ", EVs)
-##                best_call = self.player.get_ideal_option(EVs)
-##                print ("Best call : ", best_call)
-##                strategy_line.append(value, best_call)
-##            # Adding the strategy_line into the strategy chart
-##            print("strategy_line = ", strategy_line)
-##
-##            strategy_chart_pair.add_to_map(s, strategy_line)
-##        print("Strategy chart : ", strategy_chart_pair)
-##        #TODO
-##        input("ooo")
+        # Checking out the dealers stats before the cards are dealt :
+        stat_card = StatCard(COUNT, nb_cards)
+        card_values = stat_card.get_card_values()
+        stat_chart = StatChart(card_values)
+
+        for i in range(10) :
+            value = i + 2
+            dealer_stat_score = self.dealer.get_probabilities(value)
+            stat_chart.add_to_map(value, dealer_stat_score)
+        print("StatChart for the Dealer (before drawing any card):", stat_chart)
+
+        #TEMP TODO Attention ! xxx
+        ##card_value = 11
+        ##player_value = 11
+        ##card1 = Card(VALUE_TO_NAME[card_value], card_value)
+        ##if (player_value == 11) :
+        ##    card2 = Card(VALUE_TO_NAME[card_value], 1)
+        ##else :
+        ##    card2 = Card(VALUE_TO_NAME[card_value], card_value)
+        ##    
+        ##player_hand = Hand([card1, card2])
+        ##value = 11
+        ##print("Player : ", player_hand, ", dealer = ", value)
+        ### That dealer's stats for value are :
+        ##dealer_stat_score = stat_chart.map_of_stat_scores[value]
+        ##EVs = self.player.get_hand_EVs(player_hand, dealer_stat_score)
+        ##print ("Evs = ", EVs)
+        ##best_call = self.player.get_ideal_option(EVs)
+        ##print ("Best call : ", best_call)
+        ##input("Temp")
+        # End of TEMP TODO Attention !
+        
+        
+        # Creating a StrategyChart.
+        # First of, what are the odds of getting any value with the first 2 cards?
+        new_count = copy.deepcopy(COUNT)
+        new_nb_cards = nb_cards
+        stat_card1 = StatCard(new_count, new_nb_cards)
+        card_values1 = stat_card1.get_card_values()
+        new_count, new_nb_cards = stat_card.get_new_count()
+        stat_card2 = StatCard(new_count, new_nb_cards)
+        card_values2 = stat_card2.get_card_values()
+        map_of_hard_scores, map_of_soft_scores, map_of_pair_scores = Score.get_maps_of_scores(card_values1, card_values2)
+        
+        ##strategy_chart_pair = StrategyChart({2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0}) # TODO : estimate the overall probability of each score for the dealer (quite easy)
+        ##for s in map_of_pair_scores :
+        ##    # Checking the best call and EV when the player has the score s against the dealer's value (up card)
+        ##    player_value = map_of_pair_scores[s].value
+        ##    strategy_line = StrategyLine(map_of_pair_scores[s])
+        ##    # Hand made hands.
+        ##    card_value = player_value
+        ##    card1 = Card(VALUE_TO_NAME[card_value], card_value)
+        ##    if (player_value == 11) :
+        ##        ##card2 = Card(VALUE_TO_NAME[card_value], 1)
+        ##    else :
+        ##        ##card2 = Card(VALUE_TO_NAME[card_value], card_value)
+        ##    
+        ##    player_hand = Hand([card1, card2])
+        ##    for i in range(10) :
+        ##        ##value = i + 2
+        ##        ##print("Player : ", player_hand, ", dealer = ", value)
+        ##        ### That dealer's stats for value are :
+        ##        ##dealer_stat_score = stat_chart.map_of_stat_scores[value]
+        ##        ##EVs = self.player.get_hand_EVs(player_hand, dealer_stat_score)
+        ##        ##print ("Evs = ", EVs)
+        ##        ##best_call = self.player.get_ideal_option(EVs)
+        ##        ##print ("Best call : ", best_call)
+        ##        ##strategy_line.append(value, best_call)
+        ##    # Adding the strategy_line into the strategy chart
+        ##    print("strategy_line = ", strategy_line)
+
+        ##    strategy_chart_pair.add_to_map(s, strategy_line)
+        ##print("Strategy chart : ", strategy_chart_pair)
+        ###TODO
+        ##input("ooo")
 ##
 ##        strategy_chart_soft = StrategyChart({2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0}) # TODO : estimate the overall probability of each score for the dealer (quite easy)
 ##        for s in map_of_soft_scores :
@@ -1304,39 +1342,39 @@ class Game(object):
 ##        #TODO
 ##        input("ooo")
 ##        
-##        strategy_chart = StrategyChart({2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0}) # TODO : estimate the overall probability of each score for the dealer (quite easy)
-##        for s in map_of_hard_scores :
-##            # Checking the best call and EV when the player has the score s against the dealer's value (up card)
-##            player_value = map_of_hard_scores[s].value
-##            strategy_line = StrategyLine(map_of_hard_scores[s])
-##            # Hand made hands. TODO do better than this
-##            if (player_value < 13) :
-##                card1 = Card("Two", 2)
-##                card2_value = player_value - 2
-##                card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
-##            else :
-##                card1 = Card("Ten", 10)
-##                card2_value = player_value - 10
-##                card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
-##
-##            player_hand = Hand([card1, card2])
-##            for i in range(10) :
-##                value = i + 2
-##                print("Player : ", player_hand, ", dealer = ", value)
-##                # That dealer's stats for value are :
-##                dealer_stat_score = stat_chart.map_of_stat_scores[value]
-##                EVs = self.player.get_hand_EVs(player_hand, dealer_stat_score)
-##                print ("Evs = ", EVs)
-##                best_call = self.player.get_ideal_option(EVs)
-##                print ("Best call : ", best_call)
-##                strategy_line.append(value, best_call)
-##            # Adding the strategy_line into the strategy chart
-##            print("strategy_line = ", strategy_line)
-##
-##            strategy_chart.add_to_map(s, strategy_line)
-##        print("Strategy chart : ", strategy_chart)
-##        #TODO
-##        input("ooo")
+        strategy_chart = StrategyChart({2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0}) # TODO : estimate the overall probability of each score for the dealer (quite easy)
+        for s in map_of_hard_scores :
+            # Checking the best call and EV when the player has the score s against the dealer's value (up card)
+            player_value = map_of_hard_scores[s].value
+            strategy_line = StrategyLine(map_of_hard_scores[s])
+            # Hand made hands. TODO do better than this
+            if (player_value < 13) :
+                card1 = Card("Two", 2)
+                card2_value = player_value - 2
+                card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
+            else :
+                card1 = Card("Ten", 10)
+                card2_value = player_value - 10
+                card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
+
+            player_hand = Hand([card1, card2])
+            for i in range(10) :
+                value = i + 2
+                print("Player : ", player_hand, ", dealer = ", value)
+                # That dealer's stats for value are :
+                dealer_stat_score = stat_chart.map_of_stat_scores[value]
+                EVs = self.player.get_hand_EVs(player_hand, dealer_stat_score)
+                print ("Evs = ", EVs)
+                best_call = self.player.get_ideal_option(EVs)
+                print ("Best call : ", best_call)
+                strategy_line.append(value, best_call)
+            # Adding the strategy_line into the strategy chart
+            print("strategy_line = ", strategy_line)
+
+            strategy_chart.add_to_map(s, strategy_line)
+        print("Strategy chart : ", strategy_chart)
+        #TODO
+        input("ooo")
             
         dealer_hand = Hand([self.shoe.deal()])
         self.dealer.set_hand(dealer_hand)
