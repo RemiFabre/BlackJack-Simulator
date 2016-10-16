@@ -18,6 +18,7 @@ from tabulate import tabulate
 from importer.StrategyImporter import StrategyImporter
 import logging
 import time
+from multiprocessing import Pool
 
 LOG_FILENAME = 'results.log'
 #logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG) # DEBUG, INFO, WARNING, ERROR, CRITICAL
@@ -88,6 +89,37 @@ def is_number(x) :
         return True
     except TypeError:
         return False
+
+# Making the method a function so it's pickable
+def calculate_strategy_line(args) :
+    map_of_hard_scores, s, stat_chart, player = args
+    # Checking the best call and EV when the player has the score s against the dealer's value (up card)
+    player_value = map_of_hard_scores[s].value
+    strategy_line = StrategyLine(map_of_hard_scores[s])
+    # Hand made hands. TODO do better than this
+    if (player_value < 13) :
+        card1 = Card("Two", 2)
+        card2_value = player_value - 2
+        card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
+    else :
+        card1 = Card("Ten", 10)
+        card2_value = player_value - 10
+        card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
+        
+    player_hand = Hand([card1, card2])
+    for i in range(10) :
+        value = i + 2
+        print("Player : ", player_hand, ", dealer = ", value)
+        # That dealer's stats for value are :
+        dealer_stat_score = stat_chart.map_of_stat_scores[value]
+        EVs = player.get_hand_EVs(player_hand, dealer_stat_score)
+        print ("Evs = ", EVs)
+        best_call = player.get_ideal_option(EVs)
+        print ("Best call : ", best_call)
+        strategy_line.append(value, best_call)
+        # Adding the strategy_line into the strategy chart
+    print("strategy_line = ", strategy_line)
+    return strategy_line
 
 class Card(object):
     """
@@ -1265,38 +1297,19 @@ class Game(object):
         win *= self.stake
 
         return win, bet
-
+            
     def calculate_strategy_chart_hard(self, map_of_hard_scores, dealer_card_values, stat_chart) : 
         strategy_chart_hard = StrategyChart(dealer_card_values)
+        pool = Pool(processes=4)
+        args = []
         for s in map_of_hard_scores :
-            # Checking the best call and EV when the player has the score s against the dealer's value (up card)
-            player_value = map_of_hard_scores[s].value
-            strategy_line = StrategyLine(map_of_hard_scores[s])
-            # Hand made hands. TODO do better than this
-            if (player_value < 13) :
-                card1 = Card("Two", 2)
-                card2_value = player_value - 2
-                card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
-            else :
-                card1 = Card("Ten", 10)
-                card2_value = player_value - 10
-                card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
-
-            player_hand = Hand([card1, card2])
-            for i in range(10) :
-                value = i + 2
-                print("Player : ", player_hand, ", dealer = ", value)
-                # That dealer's stats for value are :
-                dealer_stat_score = stat_chart.map_of_stat_scores[value]
-                EVs = self.player.get_hand_EVs(player_hand, dealer_stat_score)
-                print ("Evs = ", EVs)
-                best_call = self.player.get_ideal_option(EVs)
-                print ("Best call : ", best_call)
-                strategy_line.append(value, best_call)
-            # Adding the strategy_line into the strategy chart
-            print("strategy_line = ", strategy_line)
-
-            strategy_chart_hard.add_to_map(s, strategy_line)
+            args.append((map_of_hard_scores, s, stat_chart, self.player))
+        strategy_lines = pool.map(calculate_strategy_line, args)
+        
+        index = 0
+        for s in map_of_hard_scores :
+            strategy_chart_hard.add_to_map(s, strategy_lines[index])
+            index = index + 1
         return strategy_chart_hard
 
     def calculate_strategy_chart_soft(self, map_of_soft_scores, dealer_card_values, stat_chart) : 
