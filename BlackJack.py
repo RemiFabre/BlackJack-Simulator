@@ -19,6 +19,10 @@ from importer.StrategyImporter import StrategyImporter
 import logging
 import time
 from multiprocessing import Pool
+import multiprocessing
+
+#print("cpu_count = ", multiprocessing.cpu_count())
+#input("wait")
 
 LOG_FILENAME = 'results.log'
 #logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG) # DEBUG, INFO, WARNING, ERROR, CRITICAL
@@ -39,7 +43,7 @@ logger.addHandler(ch)
 logger.debug('Starting BlackJack.py...')
 
 ### Calculation related variables
-NB_PROCESS = 4
+NB_PROCESS = 2
 GAMES = 10000
 MAX_CARDS_ALLOWED = 6 # If the player is dealt 6 cards, then he can't draw again. This should significantly reduce the calculation times (and some BJ sites also have a similar rule for actual play)
 MAX_CARDS_ALLOWED_DEALER = 8
