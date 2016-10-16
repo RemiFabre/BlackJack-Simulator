@@ -67,7 +67,7 @@ BJ_RATIO = 1.5
 
 # Defines the authorized double range (can be reduced to 9, 10, 11 in some casinos)
 MIN_DOUBLE=2
-MAX_DOUBLE=20
+MAX_DOUBLE=21
 
 ### Game global variables
 
@@ -78,7 +78,7 @@ NOT_APPLICABLE = "N/A"
 CARDS_ORDER = ["Ace", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King"]
 CARDS = {"Ace": 11, "Two": 2, "Three": 3, "Four": 4, "Five": 5, "Six": 6, "Seven": 7, "Eight": 8, "Nine": 9, "Ten": 10, "Jack": 10, "Queen": 10, "King": 10}
 VALUE_TO_NAME = {11 : "Ace", 2 : "Two", 3 : "Three", 4 : "Four", 5 : "Five", 6 : "Six", 7 : "Seven", 8 : "Eight", 9 : "Nine", 10 : "Ten"}
-y = {11 : "Ace", 2 : "Two", 3 : "Three", 4 : "Four", 5 : "Five", 6 : "Six", 7 : "Seven", 8 : "Eight", 9 : "Nine", 10 : "Ten"}
+
 BASIC_OMEGA_II = {"Ace": 0, "Two": 1, "Three": 1, "Four": 2, "Five": 2, "Six": 2, "Seven": 1, "Eight": 0, "Nine": -1, "Ten": -2, "Jack": -2, "Queen": -2, "King": -2}
 COUNT = {"Ace": SHOE_SIZE*4, "Two": SHOE_SIZE*4, "Three": SHOE_SIZE*4, "Four": SHOE_SIZE*4, "Five": SHOE_SIZE*4, "Six": SHOE_SIZE*4, "Seven": SHOE_SIZE*4, "Eight": SHOE_SIZE*4, "Nine": SHOE_SIZE*4, "Ten": SHOE_SIZE*4, "Jack": SHOE_SIZE*4, "Queen": SHOE_SIZE*4, "King": SHOE_SIZE*4}
 nb_cards = DECK_SIZE*SHOE_SIZE
@@ -404,11 +404,11 @@ class Player(object):
             else :
                 # Finding out the ideal play
                 if (dealer == None) :
-                    print("Can't fond out the ideal play if you don't give me the dealer's up card buddy")
+                    print("Can't find out the ideal play if you don't give me the dealer's up card buddy")
                     sys.exit()
                 # Getting the dealer's stats from his card (has to be re-calculated after each card drawn by the player)
                 dealer_value = dealer.hand.value
-                print("dealer_value = ", dealer_value)
+                print "**Dealer Hand: %s (%d)" % (dealer.hand, dealer.hand.value)
                 dealer_stat_score = dealer.get_probabilities(dealer_value)
                 print("Dealer's stats : ", dealer_stat_score)
                 EVs = self.get_hand_EVs(hand, dealer_stat_score)
@@ -458,7 +458,7 @@ class Player(object):
     #TODO The dealer stat_score is assumed to be constant. This is not accurate since the card picked by the player affects the dealer's stats
     #This is sufficiently impactfull to make some noticeable changes in the optimal chart for single decked games
     #@profile
-    def get_hand_EVs(self, hand, dealer_stat_score, forbid_split = False, forbid_double = False, no_bj = False, print_info=False):
+    def get_hand_EVs(self, hand, dealer_stat_score, forbid_split = False, forbid_double = False, no_bj = False, print_info=False, force_double = False):
         """
         Returns a map with the 4 EVs : stand_EV, hit_EV, double_EV, split_EV. The keys are the strings S, H, D and P.
         The best EV is the only one to be guaranteed to be calculated.
@@ -514,8 +514,9 @@ class Player(object):
             if (hand.cards[0].name == "Ace") :
                 # Can't hit split aces rule (this is equivalent to considering the double option and dividing its EV by 2)
                 # TODO we're calculating more than what we need here, we only need the double EV.
-                EVs = self.get_hand_EVs(half_hand, dealer_stat_score, forbid_split = True, forbid_double = False, no_bj = True)
+                EVs = self.get_hand_EVs(half_hand, dealer_stat_score, forbid_split = True, forbid_double = False, no_bj = True, force_double = True)
                 hit_only_once_ev = EVs["D"]/2
+
                 if (print_info) :
                     print("hit_only_once_ev = ", hit_only_once_ev)
                 EVs["D"] = NOT_APPLICABLE
@@ -534,7 +535,8 @@ class Player(object):
             if (temp_value == BLACKJACK) :
                 temp_value = 21
             #  Just handling the BJ case. Would be fun if it was viable to double on a blackjack :D
-            if (temp_value >= MIN_DOUBLE and temp_value <= MAX_DOUBLE) :
+            if (force_double or (temp_value >= MIN_DOUBLE and temp_value <= MAX_DOUBLE)) :
+                # force_double is only useful because of the trick we use for the "split aces can't be hit" rule
                 double_EV = score.double_EV(dealer_stat_score, new_count, new_nb_cards, no_bj = no_bj)
 
         stand_EV = score.EV(dealer_stat_score, BJratio=BJ_RATIO, debug=False, no_bj = no_bj)
@@ -1349,6 +1351,10 @@ class Game(object):
 
     # Returns true if a reshuffle took place during the round
     def play_round(self):
+        #For simulating a specific deck state :
+        ##COUNT = {"Ace": SHOE_SIZE*4, "Two": SHOE_SIZE*4, "Three": SHOE_SIZE*4, "Four": 0, "Five": SHOE_SIZE*4, "Six": SHOE_SIZE*4, "Seven": SHOE_SIZE*4, "Eight": SHOE_SIZE*4, "Nine": SHOE_SIZE*4, "Ten": SHOE_SIZE*4, "Jack": SHOE_SIZE*4, "Queen": SHOE_SIZE*4, "King": SHOE_SIZE*4}
+        ##nb_cards = DECK_SIZE*SHOE_SIZE - 0*SHOE_SIZE*4
+
         global NB_SPREADS
         if self.shoe.truecount() > 5: # TODO do better than this
             self.stake = BET_SPREAD
@@ -1388,7 +1394,7 @@ class Game(object):
         ##input("Temp")
         # End of TEMP TODO Attention !
         
-        
+        '''
         # Creating a StrategyChart.
         # First of, what are the odds of getting any value with the first 2 cards?
         new_count = copy.deepcopy(COUNT)
@@ -1421,33 +1427,33 @@ class Game(object):
         tf = time.time()
         print("\n***Total EV : {}, sum of probas : {}, t1 : {}s, t2 : {}s, t3 : {}s, t_sum : {}s".format("{0:.3f}".format(100*grand_total_EV), "{0:.3f}".format(100*sum_of_probas), "{0:.1f}".format(t1-t0), "{0:.1f}".format(t2-t1), "{0:.1f}".format(t3-t2), "{0:.1f}".format(tf-t0)))
         input("ooo")
-        
+        '''
         # Drawing the actual cards
-        dealer_hand = Hand([self.shoe.deal()])
-        self.dealer.set_hand(dealer_hand)
-
+        dealer_first_card = self.shoe.deal()
+        dealer_hand_first_card = Hand([dealer_first_card])
+        self.dealer.set_hand(dealer_hand_first_card)
         player_hand = Hand([self.shoe.deal(), self.shoe.deal()])
-        self.player.set_hands(player_hand, dealer_hand)
-        # print "Dealer Hand: %s" % self.dealer.hand
+        self.player.set_hands(player_hand, dealer_hand_first_card)
+        print "Dealer Hand: %s (%d)" % (self.dealer.hand, self.dealer.hand.value)
         # print "Player Hand: %s\n" % self.player.hands[0]
+        game_over = False
+        if (PEAKS_FOR_BJ) :
+            # A second card is drawn but it remains hidden, unless the dealer has a blackjack
+            
+            actual_dealer_hand = Hand([copy.deepcopy(dealer_first_card), self.shoe.deal()])
+            if (actual_dealer_hand.value == 21) :
+                # The game is over, the dealer has a BJ
+                print("Game over !")
+                game_over = True
+            
+        else :
+            actual_dealer_hand = dealer_hand_first_card
 
-##        dealer_stat_score = self.dealer.get_probabilities()
-##        print("\nStatScore for the Dealer after drawing a '", dealer_stat_score.start_value, "':")
-##        print(dealer_stat_score)
-##
-##        EVs = self.player.get_hand_EVs(player_hand, dealer_stat_score)
-##        print ("Evs = ", EVs)
-##
-##        best_call = self.player.get_ideal_option(EVs)
-##        print ("Best call : ", best_call)
-##
-##        input("Continue ?")
-        
-        #self.player.play(self.shoe)
-        self.player.play(self.shoe, ideal_play = True, dealer = self.dealer)
+        if (not(game_over)) :
+            print "??Dealer Hand: %s (%d)" % (self.dealer.hand, self.dealer.hand.value)
+            self.player.play(self.shoe, ideal_play = True, dealer = self.dealer)
+        self.dealer.set_hand(actual_dealer_hand)
         self.dealer.play(self.shoe)
-
-        # print ""
 
         for hand in self.player.hands:
             win, bet = self.get_hand_winnings(hand)
