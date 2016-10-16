@@ -1416,11 +1416,11 @@ class Game(object):
         
         t0 = time.time()
         strategy_chart_hard = self.calculate_strategy_chart_hard(map_of_hard_scores, card_values, stat_chart)
-        t1 = time.time() - t0
+        t1 = time.time()
         strategy_chart_soft = self.calculate_strategy_chart_soft(map_of_soft_scores, card_values, stat_chart)
-        t2 = time.time() - t1
+        t2 = time.time()
         strategy_chart_pair = self.calculate_strategy_chart_pair(map_of_pair_scores, card_values, stat_chart)
-        t3 = time.time() - t2
+        t3 = time.time()
         print("Strategy chart hard : ", strategy_chart_hard)
         total_hard_EV, sum_of_probas_hard = strategy_chart_hard.get_total_EV()
         print("Total hard EV : {}, sum of probas : {}".format("{0:.2f}".format(100*total_hard_EV), "{0:.2f}".format(100*sum_of_probas_hard)))
@@ -1432,8 +1432,8 @@ class Game(object):
         print("Total pair EV : {}, sum of probas : {}".format("{0:.2f}".format(100*total_pair_EV), "{0:.2f}".format(100*sum_of_probas_pair)))
         grand_total_EV = total_hard_EV + total_soft_EV + total_pair_EV
         sum_of_probas = sum_of_probas_pair + sum_of_probas_soft + sum_of_probas_hard
-        tf = time.time() - t0
-        print("\n***Total EV : {}, sum of probas : {}, t1 : {}s, t2 : {}s, t3 : {}s, t_sum : {}s".format("{0:.3f}".format(100*grand_total_EV), "{0:.3f}".format(100*sum_of_probas), "{0:.1f}".format(t1), "{0:.1f}".format(t2), "{0:.1f}".format(t3), "{0:.1f}".format(tf)))
+        tf = time.time()
+        print("\n***Total EV : {}, sum of probas : {}, t1 : {}s, t2 : {}s, t3 : {}s, t_sum : {}s".format("{0:.3f}".format(100*grand_total_EV), "{0:.3f}".format(100*sum_of_probas), "{0:.1f}".format(t1-t0), "{0:.1f}".format(t2-t1), "{0:.1f}".format(t3-t2), "{0:.1f}".format(tf-t0)))
         input("ooo")
         
         # Drawing the actual cards
