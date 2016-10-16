@@ -68,11 +68,12 @@ NB_SPREADS = 0
 NB_SHOES_PER_GAME = 1
 SHOE_SIZE = 8
 SHOE_PENETRATION = 0.55
+MIN_BET = 0.0
 BET_SPREAD = 20.0
 DOUBLE_AFTER_SPLIT_ALLOWED = False
-# CAN_HIT_ACES = False # Not implemented, you never can hit spllit aces anyways
+# CAN_HIT_ACES = False # Not implemented, you never can hit split aces anyways
 # HITS_SOFT_17 # Not implemented, False by default
-PEAKS_FOR_BJ = True
+PEAKS_FOR_BJ = False
 BJ_RATIO = 1.5
 
 # Defines the authorized double range (can be reduced to 9, 10, 11 in some casinos)
@@ -1298,7 +1299,7 @@ class Game(object):
         self.shoe = Shoe(SHOE_SIZE)
         self.money = 0.0
         self.bet = 0.0
-        self.stake = 1.0
+        self.stake = MIN_BET
         self.player = Player()
         self.dealer = Dealer()
 
@@ -1366,11 +1367,6 @@ class Game(object):
         ##nb_cards = DECK_SIZE*SHOE_SIZE - 0*SHOE_SIZE*4
 
         global NB_SPREADS
-        if self.shoe.truecount() > 5: # TODO do better than this
-            self.stake = BET_SPREAD
-            NB_SPREADS = NB_SPREADS + 1
-        else:
-            self.stake = 1.0
 
         # Checking out the dealers stats before the cards are dealt :
         stat_card = StatCard(COUNT, nb_cards)
@@ -1404,7 +1400,7 @@ class Game(object):
         ##input("Temp")
         # End of TEMP TODO Attention !
         
-        '''
+        
         # Creating a StrategyChart.
         # First of, what are the odds of getting any value with the first 2 cards?
         new_count = copy.deepcopy(COUNT)
@@ -1436,8 +1432,18 @@ class Game(object):
         sum_of_probas = sum_of_probas_pair + sum_of_probas_soft + sum_of_probas_hard
         tf = time.time()
         print("\n***Total EV : {}, sum of probas : {}, t1 : {}s, t2 : {}s, t3 : {}s, t_sum : {}s".format("{0:.3f}".format(100*grand_total_EV), "{0:.3f}".format(100*sum_of_probas), "{0:.1f}".format(t1-t0), "{0:.1f}".format(t2-t1), "{0:.1f}".format(t3-t2), "{0:.1f}".format(tf-t0)))
-        input("ooo")
-        '''
+        #input("ooo")
+
+        # Deciding how much we'll bet
+        #        if self.shoe.truecount() > 5: # TODO do better than this
+        logger.info("grand_total_EV = {}%".format("{0:.3f}".format(100*grand_total_EV)))
+        if (grand_total_EV > 0.0) :
+            self.stake = BET_SPREAD
+            NB_SPREADS = NB_SPREADS + 1
+        else:
+            self.stake = MIN_BET
+
+        
         # Drawing the actual cards
         dealer_first_card = self.shoe.deal()
         dealer_hand_first_card = Hand([dealer_first_card])
@@ -1449,7 +1455,6 @@ class Game(object):
         game_over = False
         if (PEAKS_FOR_BJ) :
             # A second card is drawn but it remains hidden, unless the dealer has a blackjack
-            
             actual_dealer_hand = Hand([copy.deepcopy(dealer_first_card), self.shoe.deal()])
             if (actual_dealer_hand.value == 21) :
                 # The game is over, the dealer has a BJ
