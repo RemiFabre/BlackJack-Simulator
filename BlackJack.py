@@ -43,7 +43,7 @@ logger.addHandler(ch)
 logger.debug('Starting BlackJack.py...')
 
 ### Calculation related variables
-NB_PROCESS = 2
+NB_PROCESS = 3
 GAMES = 10000
 MAX_CARDS_ALLOWED = 6 # If the player is dealt 6 cards, then he can't draw again. This should significantly reduce the calculation times (and some BJ sites also have a similar rule for actual play)
 MAX_CARDS_ALLOWED_DEALER = 8
