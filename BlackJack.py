@@ -43,6 +43,7 @@ MAX_CARDS_ALLOWED_DEALER = 8
 
 RIDICULOUS_PROBA = 0.005/100.0 # 1 / 20 000
 SMALL_NUMBER = 0.000001
+NB_SPREADS = 0
 
 ### Rules definition
 
@@ -1356,8 +1357,10 @@ class Game(object):
 
     # Returns true if a reshuffle took place during the round
     def play_round(self):
-        if self.shoe.truecount() > 3: # TODO do better than this
+        global NB_SPREADS
+        if self.shoe.truecount() > 5: # TODO do better than this
             self.stake = BET_SPREAD
+            NB_SPREADS = NB_SPREADS + 1
         else:
             self.stake = 1.0
 
@@ -1512,7 +1515,7 @@ if __name__ == "__main__":
         print("{} hands, {} total bet".format(nb_hands, "{0:.2f}".format(total_bet)))
         print("Overall winnings: {} (edge = {} %)".format("{0:.2f}".format(sume), "{0:.3f}".format(100.0*sume/total_bet)))
 
-        logger.info("Game {} winnings: {}. Overall winnings: {} (edge = {} %). {} hands".format(g+1, "{0:.2f}".format(game.get_money()), "{0:.2f}".format(sume), "{0:.3f}".format(100.0*sume/total_bet), nb_hands))
+        logger.info("Game {} winnings: {}. Overall winnings: {} (edge = {}%). {} hands. {} spreads ({}%)".format(g+1, "{0:.2f}".format(game.get_money()), "{0:.2f}".format(sume), "{0:.3f}".format(100.0*sume/total_bet), nb_hands, NB_SPREADS, 100*NB_SPREADS/nb_hands))
 
     """ #sigh
     moneys = sorted(moneys)
