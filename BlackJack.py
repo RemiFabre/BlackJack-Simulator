@@ -39,6 +39,7 @@ logger.addHandler(ch)
 logger.debug('Starting BlackJack.py...')
 
 ### Calculation related variables
+NB_PROCESS = 4
 GAMES = 10000
 MAX_CARDS_ALLOWED = 6 # If the player is dealt 6 cards, then he can't draw again. This should significantly reduce the calculation times (and some BJ sites also have a similar rule for actual play)
 MAX_CARDS_ALLOWED_DEALER = 8
@@ -92,20 +93,41 @@ def is_number(x) :
 
 # Making the method a function so it's pickable
 def calculate_strategy_line(args) :
-    map_of_hard_scores, s, stat_chart, player = args
+    map_of_hard_scores, s, stat_chart, player, type_of_map = args
     # Checking the best call and EV when the player has the score s against the dealer's value (up card)
     player_value = map_of_hard_scores[s].value
     strategy_line = StrategyLine(map_of_hard_scores[s])
+
     # Hand made hands. TODO do better than this
-    if (player_value < 13) :
-        card1 = Card("Two", 2)
-        card2_value = player_value - 2
-        card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
+    if (type_of_map == "hard") :
+        if (player_value < 13) :
+            card1 = Card("Two", 2)
+            card2_value = player_value - 2
+            card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
+        else :
+            card1 = Card("Ten", 10)
+            card2_value = player_value - 10
+            card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
+    elif (type_of_map == "soft") :
+        card1 = Card("Ace", 11)
+        if (player_value == BLACKJACK) :
+            card2 = Card("Ten", 10)
+        else :
+            card2_value = player_value - 11
+            card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
+    elif (type_of_map == "pair") :
+        card_value = player_value
+        card1 = Card(VALUE_TO_NAME[card_value], card_value)
+        if (player_value == 11) :
+            card2 = Card(VALUE_TO_NAME[card_value], 1)
+        else :
+            card2 = Card(VALUE_TO_NAME[card_value], card_value)
     else :
-        card1 = Card("Ten", 10)
-        card2_value = player_value - 10
-        card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
-        
+        error_message = "Unknown type_of_map : '{}' in calculate_strategy_line".format(type_of_map)
+        print(error_message)
+        logger.error(error_message)
+        sys.exit()
+
     player_hand = Hand([card1, card2])
     for i in range(10) :
         value = i + 2
@@ -1298,19 +1320,20 @@ class Game(object):
 
         return win, bet
             
-    def calculate_strategy_chart_hard(self, map_of_hard_scores, dealer_card_values, stat_chart) : 
-        strategy_chart_hard = StrategyChart(dealer_card_values)
-        pool = Pool(processes=4)
+    ### type_of_map must be one of the 3 options : "hard", "soft", "pair"
+    def calculate_strategy_chart(self, map_of_scores, type_of_map, dealer_card_values, stat_chart) : 
+        strategy_chart = StrategyChart(dealer_card_values)
+        pool = Pool(processes=NB_PROCESS)
         args = []
-        for s in map_of_hard_scores :
-            args.append((map_of_hard_scores, s, stat_chart, self.player))
+        for s in map_of_scores :
+            args.append((map_of_scores, s, stat_chart, self.player, type_of_map))
         strategy_lines = pool.map(calculate_strategy_line, args)
         
         index = 0
-        for s in map_of_hard_scores :
-            strategy_chart_hard.add_to_map(s, strategy_lines[index])
+        for s in map_of_scores :
+            strategy_chart.add_to_map(s, strategy_lines[index])
             index = index + 1
-        return strategy_chart_hard
+        return strategy_chart
 
     def calculate_strategy_chart_soft(self, map_of_soft_scores, dealer_card_values, stat_chart) : 
         strategy_chart_soft = StrategyChart(dealer_card_values)
@@ -1428,11 +1451,11 @@ class Game(object):
         map_of_hard_scores, map_of_soft_scores, map_of_pair_scores = Score.get_maps_of_scores(stat_card1, stat_card2)
         
         t0 = time.time()
-        strategy_chart_hard = self.calculate_strategy_chart_hard(map_of_hard_scores, card_values, stat_chart)
+        strategy_chart_hard = self.calculate_strategy_chart(map_of_hard_scores, "hard", card_values, stat_chart)
         t1 = time.time()
-        strategy_chart_soft = self.calculate_strategy_chart_soft(map_of_soft_scores, card_values, stat_chart)
+        strategy_chart_soft = self.calculate_strategy_chart(map_of_soft_scores, "soft", card_values, stat_chart)
         t2 = time.time()
-        strategy_chart_pair = self.calculate_strategy_chart_pair(map_of_pair_scores, card_values, stat_chart)
+        strategy_chart_pair = self.calculate_strategy_chart(map_of_pair_scores, "pair", card_values, stat_chart)
         t3 = time.time()
         print("Strategy chart hard : ", strategy_chart_hard)
         total_hard_EV, sum_of_probas_hard = strategy_chart_hard.get_total_EV()
