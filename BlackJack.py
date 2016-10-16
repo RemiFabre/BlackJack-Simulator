@@ -17,6 +17,7 @@ import copy
 from tabulate import tabulate
 from importer.StrategyImporter import StrategyImporter
 import logging
+import time
 
 LOG_FILENAME = 'results.log'
 #logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG) # DEBUG, INFO, WARNING, ERROR, CRITICAL
@@ -55,7 +56,7 @@ BET_SPREAD = 20.0
 DOUBLE_AFTER_SPLIT_ALLOWED = False
 # CAN_HIT_ACES = False # Not implemented, you never can hit spllit aces anyways
 # HITS_SOFT_17 # Not implemented, False by default
-PEAKS_FOR_ACE = True
+PEAKS_FOR_BJ = True
 BJ_RATIO = 1.5
 
 # Defines the authorized double range (can be reduced to 9, 10, 11 in some casinos)
@@ -1408,24 +1409,24 @@ class Game(object):
         #card_values2 = stat_card2.get_card_values()
         map_of_hard_scores, map_of_soft_scores, map_of_pair_scores = Score.get_maps_of_scores(stat_card1, stat_card2)
         
-        '''
+        t0 = time.time()
         strategy_chart_hard = self.calculate_strategy_chart_hard(map_of_hard_scores, card_values, stat_chart)
+        strategy_chart_soft = self.calculate_strategy_chart_soft(map_of_soft_scores, card_values, stat_chart)
+        strategy_chart_pair = self.calculate_strategy_chart_pair(map_of_pair_scores, card_values, stat_chart)
+        
         print("Strategy chart hard : ", strategy_chart_hard)
         total_hard_EV, sum_of_probas_hard = strategy_chart_hard.get_total_EV()
         print("Total hard EV : {}, sum of probas : {}".format("{0:.2f}".format(100*total_hard_EV), "{0:.2f}".format(100*sum_of_probas_hard)))
-        input("ooo")
-        '''
-        '''
-        strategy_chart_soft = self.calculate_strategy_chart_soft(map_of_soft_scores, card_values, stat_chart)
         print("Strategy chart soft : ", strategy_chart_soft)
         total_soft_EV, sum_of_probas_soft = strategy_chart_soft.get_total_EV()
         print("Total soft EV : {}, sum of probas : {}".format("{0:.2f}".format(100*total_soft_EV), "{0:.2f}".format(100*sum_of_probas_soft)))
-        input("ooo")
-        '''
-        strategy_chart_pair = self.calculate_strategy_chart_pair(map_of_pair_scores, card_values, stat_chart)
         print("Strategy chart pair : ", strategy_chart_pair)
         total_pair_EV, sum_of_probas_pair = strategy_chart_pair.get_total_EV()
         print("Total pair EV : {}, sum of probas : {}".format("{0:.2f}".format(100*total_pair_EV), "{0:.2f}".format(100*sum_of_probas_pair)))
+        grand_total_EV = total_hard_EV + total_soft_EV + total_pair_EV
+        sum_of_probas = sum_of_probas_pair + sum_of_probas_soft + sum_of_probas_hard
+        tf = time.time()
+        print("\n***Total EV : {}, sum of probas : {}, calc time : {}".format("{0:.3f}".format(100*grand_total_EV), "{0:.3f}".format(100*sum_of_probas), "{0:.1f}".format(tf - t0)))
         input("ooo")
         
         # Drawing the actual cards
