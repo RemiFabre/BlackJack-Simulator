@@ -463,8 +463,13 @@ class Player(object):
 ##            print("actual split_EV = ", split_EV)
 
         double_EV = NOT_APPLICABLE
-        if (forbid_double == False and score.value >= MIN_DOUBLE and score.value <= MAX_DOUBLE) :
-            double_EV = score.double_EV(dealer_stat_score, new_count, new_nb_cards, no_bj = no_bj)
+        if (forbid_double == False) :
+            temp_value = score.value
+            if (temp_value == BLACKJACK) :
+                temp_value = 21
+            #  Just handling the BJ case. Would be fun if it was viable to double on a blackjack :D
+            if (temp_value >= MIN_DOUBLE and temp_value <= MAX_DOUBLE) :
+                double_EV = score.double_EV(dealer_stat_score, new_count, new_nb_cards, no_bj = no_bj)
 
         stand_EV = score.EV(dealer_stat_score, BJratio=BJ_RATIO, debug=False, no_bj = no_bj)
         ideal_EV_results = score.ideal_EV(dealer_stat_score, new_count, new_nb_cards, no_bj = no_bj)
