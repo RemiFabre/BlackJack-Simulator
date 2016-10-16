@@ -2,6 +2,16 @@
 import sys
 from random import shuffle
 
+# TODO :
+'''
+The dealer_peaks_for_bj rule must be implemented for the calculator :
+- When the dealer doesn't have a BJ, we'll create a temporary dealer_stat_score. The BJ col will be completely 0, but do NOT change its proba.
+Do NOT change the proba of the others cols.
+- Use this modified dealer_stat_score to solve the ideal strategy. While the decision making wil be good, the EVs for the Ace col won't be.
+- The Ace col (in the strat_charts) EV's must be modified as follows : (1-dealer_BJ_proba)*current_ev + (dealer_BJ_proba)*ev_vs_BJ
+
+'''
+
 
 #import codecs
 #sys.stdout = codecs.getwriter("iso-8859-1")(sys.stdout, 'xmlcharrefreplace')
