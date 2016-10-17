@@ -1,0 +1,85 @@
+2016-10-17 11:06:58,856 - DEBUG - Starting BlackJack.py...
+2016-10-17 11:07:13,746 - INFO - ***Total EV : -0.784, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 11.2s, t_sum : 14.9s
+2016-10-17 11:07:28,511 - INFO - ***Total EV : -0.776, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 11.1s, t_sum : 14.7s
+2016-10-17 11:07:43,654 - INFO - ***Total EV : -1.077, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.5s, t_sum : 15.1s
+2016-10-17 11:07:58,499 - INFO - ***Total EV : -0.652, sum of probas : 100.000, t1 : 2.1s, t2 : 1.6s, t3 : 11.1s, t_sum : 14.8s
+2016-10-17 11:08:13,839 - INFO - ***Total EV : -0.845, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.6s, t_sum : 15.3s
+2016-10-17 11:08:29,053 - INFO - ***Total EV : -0.680, sum of probas : 100.000, t1 : 2.1s, t2 : 1.6s, t3 : 11.4s, t_sum : 15.2s
+2016-10-17 11:08:44,055 - INFO - ***Total EV : -0.934, sum of probas : 100.000, t1 : 2.2s, t2 : 1.6s, t3 : 11.2s, t_sum : 15.0s
+2016-10-17 11:08:59,406 - INFO - ***Total EV : -0.330, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.4s, t_sum : 15.1s
+2016-10-17 11:09:14,755 - INFO - ***Total EV : -1.344, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 11.6s, t_sum : 15.3s
+2016-10-17 11:09:30,086 - INFO - ***Total EV : -1.132, sum of probas : 100.000, t1 : 2.1s, t2 : 1.6s, t3 : 11.5s, t_sum : 15.3s
+2016-10-17 11:09:45,371 - INFO - ***Total EV : -1.735, sum of probas : 100.000, t1 : 2.1s, t2 : 1.7s, t3 : 11.4s, t_sum : 15.2s
+2016-10-17 11:09:45,395 - INFO - Game 1 winnings: 0.00. Overall winnings: 0.00 (edge = N/A%). 11 hands. 0 spreads (0.0%)
+2016-10-17 11:10:00,340 - INFO - ***Total EV : -0.784, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.3s, t_sum : 14.9s
+2016-10-17 11:10:15,629 - INFO - ***Total EV : -0.834, sum of probas : 100.000, t1 : 2.1s, t2 : 1.6s, t3 : 11.4s, t_sum : 15.2s
+2016-10-17 11:10:31,078 - INFO - ***Total EV : -0.650, sum of probas : 100.000, t1 : 2.1s, t2 : 1.7s, t3 : 11.6s, t_sum : 15.4s
+2016-10-17 11:10:46,471 - INFO - ***Total EV : -0.727, sum of probas : 100.000, t1 : 2.1s, t2 : 1.6s, t3 : 11.6s, t_sum : 15.4s
+2016-10-17 11:11:01,883 - INFO - ***Total EV : -1.567, sum of probas : 100.000, t1 : 2.1s, t2 : 1.7s, t3 : 11.6s, t_sum : 15.4s
+2016-10-17 11:11:17,722 - INFO - ***Total EV : -2.081, sum of probas : 100.000, t1 : 2.1s, t2 : 1.7s, t3 : 11.5s, t_sum : 15.3s
+2016-10-17 11:11:33,023 - INFO - ***Total EV : -2.416, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.6s, t_sum : 15.3s
+2016-10-17 11:11:48,179 - INFO - ***Total EV : -2.414, sum of probas : 100.000, t1 : 2.1s, t2 : 1.6s, t3 : 11.4s, t_sum : 15.1s
+2016-10-17 11:12:07,320 - INFO - ***Total EV : -2.446, sum of probas : 100.000, t1 : 2.3s, t2 : 3.8s, t3 : 13.0s, t_sum : 19.1s
+2016-10-17 11:12:32,939 - INFO - ***Total EV : -2.023, sum of probas : 100.000, t1 : 12.1s, t2 : 1.8s, t3 : 11.6s, t_sum : 25.6s
+2016-10-17 11:12:48,228 - INFO - ***Total EV : -2.660, sum of probas : 100.000, t1 : 2.1s, t2 : 1.7s, t3 : 11.4s, t_sum : 15.3s
+2016-10-17 11:12:48,244 - INFO - Game 2 winnings: 0.00. Overall winnings: 0.00 (edge = N/A%). 22 hands. 0 spreads (0.0%)
+2016-10-17 11:13:03,399 - INFO - ***Total EV : -0.784, sum of probas : 100.000, t1 : 2.2s, t2 : 1.7s, t3 : 11.3s, t_sum : 15.2s
+2016-10-17 11:13:18,453 - INFO - ***Total EV : -1.303, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 11.2s, t_sum : 15.0s
+2016-10-17 11:13:33,829 - INFO - ***Total EV : -1.314, sum of probas : 100.000, t1 : 2.1s, t2 : 1.7s, t3 : 11.5s, t_sum : 15.3s
+2016-10-17 11:13:49,138 - INFO - ***Total EV : -1.828, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.6s, t_sum : 15.3s
+2016-10-17 11:14:05,554 - INFO - ***Total EV : -1.760, sum of probas : 100.000, t1 : 2.2s, t2 : 1.8s, t3 : 12.3s, t_sum : 16.4s
+2016-10-17 11:14:21,171 - INFO - ***Total EV : -1.869, sum of probas : 100.000, t1 : 2.2s, t2 : 1.7s, t3 : 11.8s, t_sum : 15.6s
+2016-10-17 11:14:36,945 - INFO - ***Total EV : -2.081, sum of probas : 100.000, t1 : 2.1s, t2 : 1.7s, t3 : 11.9s, t_sum : 15.7s
+2016-10-17 11:14:52,244 - INFO - ***Total EV : -1.824, sum of probas : 100.000, t1 : 2.1s, t2 : 1.6s, t3 : 11.5s, t_sum : 15.3s
+2016-10-17 11:15:07,481 - INFO - ***Total EV : -1.987, sum of probas : 100.000, t1 : 2.1s, t2 : 1.7s, t3 : 11.5s, t_sum : 15.2s
+2016-10-17 11:15:24,383 - INFO - ***Total EV : -2.192, sum of probas : 100.000, t1 : 2.8s, t2 : 1.7s, t3 : 12.3s, t_sum : 16.9s
+2016-10-17 11:15:39,312 - INFO - ***Total EV : -2.987, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.3s, t_sum : 14.9s
+2016-10-17 11:15:39,328 - INFO - Game 3 winnings: 0.00. Overall winnings: 0.00 (edge = N/A%). 33 hands. 0 spreads (0.0%)
+2016-10-17 11:15:54,491 - INFO - ***Total EV : -0.784, sum of probas : 100.000, t1 : 1.9s, t2 : 1.7s, t3 : 11.5s, t_sum : 15.1s
+2016-10-17 11:16:11,152 - INFO - ***Total EV : -1.111, sum of probas : 100.000, t1 : 2.0s, t2 : 2.4s, t3 : 12.2s, t_sum : 16.7s
+2016-10-17 11:16:26,222 - INFO - ***Total EV : -1.129, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 11.3s, t_sum : 15.0s
+2016-10-17 11:16:41,354 - INFO - ***Total EV : -1.764, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.5s, t_sum : 15.1s
+2016-10-17 11:16:57,515 - INFO - ***Total EV : -1.238, sum of probas : 100.000, t1 : 2.1s, t2 : 1.8s, t3 : 12.2s, t_sum : 16.1s
+2016-10-17 11:17:12,460 - INFO - ***Total EV : -1.210, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.2s, t_sum : 14.9s
+2016-10-17 11:17:27,343 - INFO - ***Total EV : -1.426, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.3s, t_sum : 14.9s
+2016-10-17 11:17:42,256 - INFO - ***Total EV : -1.845, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.2s, t_sum : 14.9s
+2016-10-17 11:17:57,248 - INFO - ***Total EV : -1.580, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.3s, t_sum : 15.0s
+2016-10-17 11:18:12,349 - INFO - ***Total EV : -1.490, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 11.3s, t_sum : 15.0s
+2016-10-17 11:18:29,977 - INFO - ***Total EV : -1.149, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 14.0s, t_sum : 17.6s
+2016-10-17 11:18:30,008 - INFO - Game 4 winnings: 0.00. Overall winnings: 0.00 (edge = N/A%). 44 hands. 0 spreads (0.0%)
+2016-10-17 11:18:53,268 - INFO - ***Total EV : -0.784, sum of probas : 100.000, t1 : 10.0s, t2 : 2.0s, t3 : 11.3s, t_sum : 23.3s
+2016-10-17 11:19:08,290 - INFO - ***Total EV : -0.244, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.3s, t_sum : 15.0s
+2016-10-17 11:19:23,688 - INFO - ***Total EV : 0.198, sum of probas : 100.000, t1 : 2.2s, t2 : 1.7s, t3 : 11.5s, t_sum : 15.4s
+2016-10-17 11:19:38,882 - INFO - ***Total EV : -0.016, sum of probas : 100.000, t1 : 2.2s, t2 : 1.6s, t3 : 11.3s, t_sum : 15.2s
+2016-10-17 11:19:54,045 - INFO - ***Total EV : -0.448, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.5s, t_sum : 15.1s
+2016-10-17 11:20:09,489 - INFO - ***Total EV : -0.174, sum of probas : 100.000, t1 : 2.1s, t2 : 1.7s, t3 : 11.5s, t_sum : 15.2s
+2016-10-17 11:20:28,818 - INFO - ***Total EV : -0.594, sum of probas : 100.000, t1 : 3.2s, t2 : 3.0s, t3 : 13.0s, t_sum : 19.3s
+2016-10-17 11:20:44,418 - INFO - ***Total EV : -0.808, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 11.8s, t_sum : 15.6s
+2016-10-17 11:20:59,597 - INFO - ***Total EV : -0.370, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 11.3s, t_sum : 15.1s
+2016-10-17 11:21:14,713 - INFO - ***Total EV : 0.228, sum of probas : 100.000, t1 : 2.1s, t2 : 1.7s, t3 : 11.3s, t_sum : 15.1s
+2016-10-17 11:21:29,970 - INFO - ***Total EV : 0.413, sum of probas : 100.000, t1 : 2.1s, t2 : 1.7s, t3 : 11.4s, t_sum : 15.2s
+2016-10-17 11:21:30,001 - INFO - Game 5 winnings: 40.00. Overall winnings: 40.00 (edge = 50.000%). 55 hands. 3 spreads (5.454545454545454%)
+2016-10-17 11:21:45,040 - INFO - ***Total EV : -0.784, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 11.3s, t_sum : 15.0s
+2016-10-17 11:22:01,404 - INFO - ***Total EV : -0.673, sum of probas : 100.000, t1 : 2.1s, t2 : 1.6s, t3 : 12.6s, t_sum : 16.3s
+2016-10-17 11:22:17,612 - INFO - ***Total EV : -0.757, sum of probas : 100.000, t1 : 2.8s, t2 : 1.9s, t3 : 11.4s, t_sum : 16.1s
+2016-10-17 11:22:36,613 - INFO - ***Total EV : -0.683, sum of probas : 100.000, t1 : 2.9s, t2 : 3.4s, t3 : 12.6s, t_sum : 18.9s
+2016-10-17 11:22:51,714 - INFO - ***Total EV : -0.873, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 11.4s, t_sum : 15.1s
+2016-10-17 11:23:07,033 - INFO - ***Total EV : -0.580, sum of probas : 100.000, t1 : 2.1s, t2 : 2.0s, t3 : 11.3s, t_sum : 15.3s
+2016-10-17 11:24:09,636 - INFO - ***Total EV : -0.797, sum of probas : 100.000, t1 : 49.7s, t2 : 1.6s, t3 : 11.2s, t_sum : 62.6s
+2016-10-17 11:24:27,576 - INFO - ***Total EV : -0.083, sum of probas : 100.000, t1 : 3.9s, t2 : 1.6s, t3 : 12.4s, t_sum : 17.9s
+2016-10-17 11:24:44,939 - INFO - ***Total EV : 0.099, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 13.6s, t_sum : 17.3s
+2016-10-17 11:24:59,946 - INFO - ***Total EV : 0.709, sum of probas : 100.000, t1 : 2.0s, t2 : 1.5s, t3 : 11.4s, t_sum : 14.9s
+2016-10-17 11:25:15,016 - INFO - ***Total EV : 0.789, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 11.4s, t_sum : 15.1s
+2016-10-17 11:25:15,078 - INFO - Game 6 winnings: 20.00. Overall winnings: 60.00 (edge = 37.500%). 66 hands. 6 spreads (9.090909090909092%)
+2016-10-17 11:25:30,023 - INFO - ***Total EV : -0.784, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 11.2s, t_sum : 14.9s
+2016-10-17 11:25:45,405 - INFO - ***Total EV : 0.138, sum of probas : 100.000, t1 : 2.0s, t2 : 1.6s, t3 : 11.4s, t_sum : 15.0s
+2016-10-17 11:26:00,693 - INFO - ***Total EV : 0.128, sum of probas : 100.000, t1 : 2.0s, t2 : 1.7s, t3 : 11.6s, t_sum : 15.3s
+2016-10-17 11:26:16,184 - INFO - ***Total EV : -0.018, sum of probas : 100.000, t1 : 2.1s, t2 : 1.7s, t3 : 11.7s, t_sum : 15.4s
+2016-10-17 11:26:32,236 - INFO - ***Total EV : 0.270, sum of probas : 100.000, t1 : 2.1s, t2 : 1.7s, t3 : 12.2s, t_sum : 16.0s
+2016-10-17 11:26:48,117 - INFO - ***Total EV : 0.459, sum of probas : 100.000, t1 : 2.3s, t2 : 1.9s, t3 : 11.7s, t_sum : 15.8s
+2016-10-17 11:27:23,014 - INFO - ***Total EV : 1.108, sum of probas : 100.000, t1 : 2.2s, t2 : 2.0s, t3 : 30.6s, t_sum : 34.9s
+2016-10-17 11:27:45,135 - INFO - ***Total EV : 0.583, sum of probas : 100.000, t1 : 4.5s, t2 : 1.8s, t3 : 15.8s, t_sum : 22.1s
+2016-10-17 11:28:05,290 - INFO - ***Total EV : 0.369, sum of probas : 100.000, t1 : 4.3s, t2 : 2.1s, t3 : 13.7s, t_sum : 20.1s
+2016-10-17 11:28:27,926 - INFO - ***Total EV : 0.574, sum of probas : 100.000, t1 : 2.6s, t2 : 5.4s, t3 : 14.6s, t_sum : 22.6s
+2016-10-17 11:28:49,978 - INFO - ***Total EV : 0.309, sum of probas : 100.000, t1 : 4.6s, t2 : 1.9s, t3 : 15.5s, t_sum : 22.0s
+2016-10-17 11:28:50,009 - INFO - Game 7 winnings: 80.00. Overall winnings: 140.00 (edge = 41.176%). 77 hands. 15 spreads (19.48051948051948%)
