@@ -1357,6 +1357,21 @@ class Game(object):
         win *= self.stake
 
         return win, bet
+
+    ### type_of_map must be one of the 3 options : "hard", "soft", "pair"
+    def calculate_strategy_chart(self, map_of_scores, type_of_map, dealer_card_values, stat_chart) : 
+        strategy_chart = StrategyChart(dealer_card_values)
+        pool = Pool(processes=NB_PROCESS)
+        args = []
+        for s in map_of_scores :
+            args.append((map_of_scores, s, stat_chart, self.player, type_of_map, True))
+        strategy_lines = pool.map(calculate_strategy_line, args)
+        
+        index = 0
+        for s in map_of_scores :
+            strategy_chart.add_to_map(s, strategy_lines[index])
+            index = index + 1
+        return strategy_chart
             
     ### type_of_map must be one of the 3 options : "hard", "soft", "pair"
     def calculate_strategy_chart_cell(self, map_of_scores, type_of_map, dealer_card_values, stat_chart) : 
