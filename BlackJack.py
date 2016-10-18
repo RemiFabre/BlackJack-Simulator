@@ -51,7 +51,7 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 ### Calculation related variables
-NB_PROCESS = 3
+NB_PROCESS = 4
 GAMES = 10000
 MAX_CARDS_ALLOWED = 5 # If the player is dealt MAX_CARDS_ALLOWED cards, then he can't draw again. This should significantly reduce the calculation times (and some BJ sites also have a similar rule for actual play). 6 and + is OK. At 5 I've observed 0.02% of error on the house edge.
 MAX_CARDS_ALLOWED_DEALER = 6
@@ -160,6 +160,22 @@ def calculate_strategy_line(args) :
     if (print_info) :
         print("strategy_line = ", strategy_line)
     return strategy_line
+
+def calculate_strategy_cell(args) :
+    stat_chart, player, player_hand, value, print_info = args
+    # Checking the best call and EV when the player has the score s against the dealer's value (up card)
+    if (print_info) :
+        print("Player : ", player_hand, ", dealer = ", value)
+    # That dealer's stats for value are :
+    dealer_stat_score = stat_chart.map_of_stat_scores[value]
+    EVs = player.get_hand_EVs(player_hand, dealer_stat_score)
+    if (print_info) :
+        print ("Evs = ", EVs)
+    best_call = player.get_ideal_option(EVs)
+    if (print_info) :
+        print ("Best call : ", best_call)
+    return (value, best_call)
+
 
 class Card(object):
     """
@@ -1342,7 +1358,7 @@ class Game(object):
         win *= self.stake
 
         return win, bet
-            
+
     ### type_of_map must be one of the 3 options : "hard", "soft", "pair"
     def calculate_strategy_chart(self, map_of_scores, type_of_map, dealer_card_values, stat_chart) : 
         global pool
@@ -1357,6 +1373,67 @@ class Game(object):
             strategy_chart.add_to_map(s, strategy_lines[index])
             index = index + 1
         return strategy_chart
+            
+    ### type_of_map must be one of the 3 options : "hard", "soft", "pair"
+    def calculate_strategy_chart_cell(self, map_of_scores, type_of_map, dealer_card_values, stat_chart) : 
+        strategy_chart = StrategyChart(dealer_card_values)
+        pool = Pool(processes=NB_PROCESS)
+        args = []
+        for s in map_of_scores :
+            # Creating a fake payer_hand that matches the current score
+            player_value = map_of_scores[s].value
+            if (type_of_map == "hard") :
+                if (player_value < 13) :
+                    card1 = Card("Two", 2)
+                    card2_value = player_value - 2
+                    card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
+                else :
+                    card1 = Card("Ten", 10)
+                    card2_value = player_value - 10
+                    card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
+            elif (type_of_map == "soft") :
+                card1 = Card("Ace", 11)
+                if (player_value == BLACKJACK) :
+                    card2 = Card("Ten", 10)
+                else :
+                    card2_value = player_value - 11
+                    card2 = Card(VALUE_TO_NAME[card2_value], card2_value)
+            elif (type_of_map == "pair") :
+                card_value = player_value
+                card1 = Card(VALUE_TO_NAME[card_value], card_value)
+                if (player_value == 11) :
+                    card2 = Card(VALUE_TO_NAME[card_value], 1)
+                else :
+                    card2 = Card(VALUE_TO_NAME[card_value], card_value)
+            else :
+                error_message = "Unknown type_of_map : '{}' in calculate_strategy_line".format(type_of_map)
+                print(error_message)
+                logger.error(error_message)
+                sys.exit()
+            player_hand = Hand([card1, card2])
+
+            for i in range(10) :
+                dealer_value = i + 2
+                args.append((stat_chart, self.player, player_hand, dealer_value, True))
+                
+        strategy_cells = pool.map(calculate_strategy_cell, args)
+
+        index = 0
+        strategy_lines = []
+        # Creating strategy lines from strategy cells.
+        for s in map_of_scores :
+            strategy_line = StrategyLine(map_of_scores[s])
+            for i in range(index, index + 10) :
+                strategy_line.append(strategy_cells[i][0], strategy_cells[i][1])
+            strategy_lines.append(strategy_line)
+            index = index + 10
+
+        index = 0
+        for s in map_of_scores :
+            strategy_chart.add_to_map(s, strategy_lines[index])
+            index = index + 1
+        return strategy_chart
+
 
     # Returns true if a reshuffle took place during the round
     def play_round(self):
@@ -1411,11 +1488,11 @@ class Game(object):
         map_of_hard_scores, map_of_soft_scores, map_of_pair_scores = Score.get_maps_of_scores(stat_card1, stat_card2)
         
         t0 = time.time()
-        strategy_chart_hard = self.calculate_strategy_chart(map_of_hard_scores, "hard", card_values, stat_chart)
+        strategy_chart_hard = self.calculate_strategy_chart_cell(map_of_hard_scores, "hard", card_values, stat_chart)
         t1 = time.time()
-        strategy_chart_soft = self.calculate_strategy_chart(map_of_soft_scores, "soft", card_values, stat_chart)
+        strategy_chart_soft = self.calculate_strategy_chart_cell(map_of_soft_scores, "soft", card_values, stat_chart)
         t2 = time.time()
-        strategy_chart_pair = self.calculate_strategy_chart(map_of_pair_scores, "pair", card_values, stat_chart)
+        strategy_chart_pair = self.calculate_strategy_chart_cell(map_of_pair_scores, "pair", card_values, stat_chart)
         t3 = time.time()
         print("Strategy chart hard : ", strategy_chart_hard)
         total_hard_EV, sum_of_probas_hard = strategy_chart_hard.get_total_EV()
@@ -1430,7 +1507,7 @@ class Game(object):
         sum_of_probas = sum_of_probas_pair + sum_of_probas_soft + sum_of_probas_hard
         tf = time.time()
         print("\n***Total EV : {}, sum of probas : {}, t1 : {}s, t2 : {}s, t3 : {}s, t_sum : {}s".format("{0:.3f}".format(100*grand_total_EV), "{0:.3f}".format(100*sum_of_probas), "{0:.1f}".format(t1-t0), "{0:.1f}".format(t2-t1), "{0:.1f}".format(t3-t2), "{0:.1f}".format(tf-t0)))
-        #input("ooo")
+        input("ooo")
 
         # Deciding how much we'll bet
         #        if self.shoe.truecount() > 5: # TODO do better than this
