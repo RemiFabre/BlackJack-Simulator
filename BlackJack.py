@@ -51,7 +51,7 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 ### Calculation related variables
-NB_PROCESS = 2
+NB_PROCESS = 3
 GAMES = 10000
 MAX_CARDS_ALLOWED = 5 # If the player is dealt MAX_CARDS_ALLOWED cards, then he can't draw again. This should significantly reduce the calculation times (and some BJ sites also have a similar rule for actual play). 6 and + is OK. At 5 I've observed 0.02% of error on the house edge.
 MAX_CARDS_ALLOWED_DEALER = 6
@@ -91,6 +91,7 @@ VALUE_TO_NAME = {11 : "Ace", 2 : "Two", 3 : "Three", 4 : "Four", 5 : "Five", 6 :
 BASIC_OMEGA_II = {"Ace": 0, "Two": 1, "Three": 1, "Four": 2, "Five": 2, "Six": 2, "Seven": 1, "Eight": 0, "Nine": -1, "Ten": -2, "Jack": -2, "Queen": -2, "King": -2}
 COUNT = {"Ace": SHOE_SIZE*4, "Two": SHOE_SIZE*4, "Three": SHOE_SIZE*4, "Four": SHOE_SIZE*4, "Five": SHOE_SIZE*4, "Six": SHOE_SIZE*4, "Seven": SHOE_SIZE*4, "Eight": SHOE_SIZE*4, "Nine": SHOE_SIZE*4, "Ten": SHOE_SIZE*4, "Jack": SHOE_SIZE*4, "Queen": SHOE_SIZE*4, "King": SHOE_SIZE*4}
 nb_cards = DECK_SIZE*SHOE_SIZE
+pool = None
 
 HARD_STRATEGY = {}
 SOFT_STRATEGY = {}
@@ -1344,8 +1345,8 @@ class Game(object):
             
     ### type_of_map must be one of the 3 options : "hard", "soft", "pair"
     def calculate_strategy_chart(self, map_of_scores, type_of_map, dealer_card_values, stat_chart) : 
+        global pool
         strategy_chart = StrategyChart(dealer_card_values)
-        pool = Pool(processes=NB_PROCESS)
         args = []
         for s in map_of_scores :
             args.append((map_of_scores, s, stat_chart, self.player, type_of_map, True))
@@ -1500,7 +1501,7 @@ if __name__ == "__main__":
     logger.debug('Starting BlackJack.py...')
     importer = StrategyImporter(sys.argv[1])
     HARD_STRATEGY, SOFT_STRATEGY, PAIR_STRATEGY = importer.import_player_strategy()
-
+    pool = Pool(processes=NB_PROCESS)
     moneys = []
     bets = []
     countings = []
