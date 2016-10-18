@@ -1524,7 +1524,8 @@ class Game(object):
         if (strategy_chart_hard.insurance_EV > 0) :
             # We're only taking the insurance if it's viable, of course
             insurance_EV = strategy_chart_hard.insurance_EV
-            print("Insurance_EV = " + "{0:.3f}".format(100*self.insurance_EV))
+            print("Insurance_EV = " + "{0:.3f}".format(100*insurance_EV))
+
 
         grand_total_EV = total_hard_EV + total_soft_EV + total_pair_EV + insurance_EV
         sum_of_probas = sum_of_probas_pair + sum_of_probas_soft + sum_of_probas_hard
@@ -1535,8 +1536,7 @@ class Game(object):
         # Deciding how much we'll bet
         #        if self.shoe.truecount() > 5: # TODO do better than this
         logger.info("***Total EV : {}, sum of probas : {}, t1 : {}s, t2 : {}s, t3 : {}s, t_sum : {}s".format("{0:.3f}".format(100*grand_total_EV), "{0:.3f}".format(100*sum_of_probas), "{0:.1f}".format(t1-t0), "{0:.1f}".format(t2-t1), "{0:.1f}".format(t3-t2), "{0:.1f}".format(tf-t0)))
-        if (insurance_EV > 0) :
-            logger.info("Insurance_EV = " + "{0:.3f}".format(100*self.insurance_EV))
+        logger.info("Insurance_EV = " + "{0:.3f}".format(100*strategy_chart_hard.insurance_EV))
 
         if (grand_total_EV > 0.0) :
             self.stake = BET_SPREAD
