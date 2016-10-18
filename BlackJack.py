@@ -1263,7 +1263,7 @@ class StrategyChart(object) :
     def __init__(self, dealer_card_values):
         self.map_of_strategy_lines = {}
         self.dealer_card_values = dealer_card_values
-        
+        self.insurance_EV = 0.0
         print("dealer_card_values = ", dealer_card_values)
         for d in self.dealer_card_values :
             print(str(d) + " (" + "{0:.1f}".format(100*self.dealer_card_values[d])  + ")")
@@ -1303,6 +1303,18 @@ class StrategyChart(object) :
                 sum_of_probas = sum_of_probas + proba
                 total_EV = total_EV + EV
         return total_EV, sum_of_probas
+
+    def calculate_insurance_EV(self) :
+        global COUNT, nb_cards
+        proba_of_dealer_ace = self.dealer_card_values[11]
+        nb_tens = COUNT["Ten"] + COUNT["Jack"] + COUNT["Queen"] + COUNT["King"]
+        # If the hole card is a ten, the insurance bet is a winner
+        proba_of_ten = (nb_tens) / float(nb_cards)
+        # The bet made in the insurance bet is always 0.5 the original wager. If won, the insurance pays 2:1. If lost, the wager is lost.
+        insurance_bet_EV = proba_of_ten*1 - 0.5*(1-proba_of_ten)
+        # The insurance bet is only proposed when the dealer has an ace as the first card :
+        insurance_bet_EV = insurance_bet_EV * proba_of_dealer_ace
+        self.insurance_EV = insurance_bet_EV
 
 class Game(object):
     """
@@ -1371,6 +1383,7 @@ class Game(object):
         for s in map_of_scores :
             strategy_chart.add_to_map(s, strategy_lines[index])
             index = index + 1
+
         return strategy_chart
             
     ### type_of_map must be one of the 3 options : "hard", "soft", "pair"
@@ -1431,6 +1444,7 @@ class Game(object):
         for s in map_of_scores :
             strategy_chart.add_to_map(s, strategy_lines[index])
             index = index + 1
+
         return strategy_chart
 
 
@@ -1502,15 +1516,26 @@ class Game(object):
         print("Strategy chart pair : ", strategy_chart_pair)
         total_pair_EV, sum_of_probas_pair = strategy_chart_pair.get_total_EV()
         print("Total pair EV : {}, sum of probas : {}".format("{0:.2f}".format(100*total_pair_EV), "{0:.2f}".format(100*sum_of_probas_pair)))
-        grand_total_EV = total_hard_EV + total_soft_EV + total_pair_EV
+        
+        #Any chart can be taken to calculate the insurance EV
+        strategy_chart_hard.calculate_insurance_EV()
+        insurance_EV = 0.0
+        if (strategy_chart_hard.insurance_EV > 0) :
+            # We're only taking the insurance if it's viable, of course
+            insurance_EV = strategy_chart_hard.insurance_EV
+            print("Insurance_EV = " + "{0:.3f}".format(100*self.insurance_EV))
+
+        grand_total_EV = total_hard_EV + total_soft_EV + total_pair_EV + insurance_EV
         sum_of_probas = sum_of_probas_pair + sum_of_probas_soft + sum_of_probas_hard
         tf = time.time()
         print("\n***Total EV : {}, sum of probas : {}, t1 : {}s, t2 : {}s, t3 : {}s, t_sum : {}s".format("{0:.3f}".format(100*grand_total_EV), "{0:.3f}".format(100*sum_of_probas), "{0:.1f}".format(t1-t0), "{0:.1f}".format(t2-t1), "{0:.1f}".format(t3-t2), "{0:.1f}".format(tf-t0)))
-        input("ooo")
+#        input("ooo")
 
         # Deciding how much we'll bet
         #        if self.shoe.truecount() > 5: # TODO do better than this
         logger.info("***Total EV : {}, sum of probas : {}, t1 : {}s, t2 : {}s, t3 : {}s, t_sum : {}s".format("{0:.3f}".format(100*grand_total_EV), "{0:.3f}".format(100*sum_of_probas), "{0:.1f}".format(t1-t0), "{0:.1f}".format(t2-t1), "{0:.1f}".format(t3-t2), "{0:.1f}".format(tf-t0)))
+        if (insurance_EV > 0) :
+            logger.info("Insurance_EV = " + "{0:.3f}".format(100*self.insurance_EV))
 
         if (grand_total_EV > 0.0) :
             self.stake = BET_SPREAD
