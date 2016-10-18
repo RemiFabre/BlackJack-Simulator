@@ -50,10 +50,8 @@ ch.setFormatter(formatter)
 # add ch to logger
 logger.addHandler(ch)
 
-logger.debug('Starting BlackJack.py...')
-
 ### Calculation related variables
-NB_PROCESS = 3
+NB_PROCESS = 2
 GAMES = 10000
 MAX_CARDS_ALLOWED = 5 # If the player is dealt MAX_CARDS_ALLOWED cards, then he can't draw again. This should significantly reduce the calculation times (and some BJ sites also have a similar rule for actual play). 6 and + is OK. At 5 I've observed 0.02% of error on the house edge.
 MAX_CARDS_ALLOWED_DEALER = 6
@@ -78,7 +76,7 @@ BJ_RATIO = 1.5
 
 # Defines the authorized double range (can be reduced to 9, 10, 11 in some casinos)
 MIN_DOUBLE=2
-MAX_DOUBLE=21
+MAX_DOUBLE=20
 
 ### Game global variables
 
@@ -419,7 +417,6 @@ class Player(object):
                     sys.exit()
                 # Getting the dealer's stats from his card (has to be re-calculated after each card drawn by the player)
                 dealer_value = dealer.hand.value
-                print "**Dealer Hand: %s (%d)" % (dealer.hand, dealer.hand.value)
                 dealer_stat_score = dealer.get_probabilities(dealer_value)
                 print("Dealer's stats : ", dealer_stat_score)
                 EVs = self.get_hand_EVs(hand, dealer_stat_score)
@@ -986,7 +983,7 @@ class StatScore(object) :
         if (start_value in self.stop_scores) :
             # No point in calculating anything, the dealer won't draw another card
             self.remaining_proba = 0.0
-        if (start_value > 21) :
+        if (isinstance(start_value, int) and start_value > 21) :
             start_value = BUSTED
         if (isinstance(start_value, int)) :
             self.values[start_value] = 1.0
@@ -1436,7 +1433,8 @@ class Game(object):
 
         # Deciding how much we'll bet
         #        if self.shoe.truecount() > 5: # TODO do better than this
-        logger.info("grand_total_EV = {}%".format("{0:.3f}".format(100*grand_total_EV)))
+        logger.info("***Total EV : {}, sum of probas : {}, t1 : {}s, t2 : {}s, t3 : {}s, t_sum : {}s".format("{0:.3f}".format(100*grand_total_EV), "{0:.3f}".format(100*sum_of_probas), "{0:.1f}".format(t1-t0), "{0:.1f}".format(t2-t1), "{0:.1f}".format(t3-t2), "{0:.1f}".format(tf-t0)))
+
         if (grand_total_EV > 0.0) :
             self.stake = BET_SPREAD
             NB_SPREADS = NB_SPREADS + 1
@@ -1450,7 +1448,7 @@ class Game(object):
         self.dealer.set_hand(dealer_hand_first_card)
         player_hand = Hand([self.shoe.deal(), self.shoe.deal()])
         self.player.set_hands(player_hand, dealer_hand_first_card)
-        print "Dealer Hand: %s (%d)" % (self.dealer.hand, self.dealer.hand.value)
+        print("Dealer Hand: %s (%d)" % (self.dealer.hand, self.dealer.hand.value))
         # print "Player Hand: %s\n" % self.player.hands[0]
         game_over = False
         if (PEAKS_FOR_BJ) :
@@ -1465,7 +1463,6 @@ class Game(object):
             actual_dealer_hand = dealer_hand_first_card
 
         if (not(game_over)) :
-            print "??Dealer Hand: %s (%d)" % (self.dealer.hand, self.dealer.hand.value)
             self.player.play(self.shoe, ideal_play = True, dealer = self.dealer)
         self.dealer.set_hand(actual_dealer_hand)
         self.dealer.play(self.shoe)
@@ -1478,6 +1475,11 @@ class Game(object):
 
         print("Dealer Hand: %s (%d)" % (self.dealer.hand, self.dealer.hand.value))
 
+        # xxx Attention ! TODO
+        for i in range(4*3) :
+            # Simulating the fact that 4 other people are playing
+            self.shoe.deal()
+		
         #input("Continue ?")
         if self.shoe.reshuffle:
             self.shoe.reshuffle = False
@@ -1495,6 +1497,7 @@ class Game(object):
 
 
 if __name__ == "__main__":
+    logger.debug('Starting BlackJack.py...')
     importer = StrategyImporter(sys.argv[1])
     HARD_STRATEGY, SOFT_STRATEGY, PAIR_STRATEGY = importer.import_player_strategy()
 
@@ -1528,9 +1531,13 @@ if __name__ == "__main__":
 
         print(float(nb_hands)/GAMES, " hands per game, on average")
         print("{} hands, {} total bet".format(nb_hands, "{0:.2f}".format(total_bet)))
-        print("Overall winnings: {} (edge = {} %)".format("{0:.2f}".format(sume), "{0:.3f}".format(100.0*sume/total_bet)))
+        if (total_bet != 0) :
+        	edge_string = "{0:.3f}".format(100.0*sume/total_bet)
+        else :
+        	edge_string = "N/A"
+        print("Overall winnings: {} (edge = {} %)".format("{0:.2f}".format(sume), edge_string))
 
-        logger.info("Game {} winnings: {}. Overall winnings: {} (edge = {}%). {} hands. {} spreads ({}%)".format(g+1, "{0:.2f}".format(game.get_money()), "{0:.2f}".format(sume), "{0:.3f}".format(100.0*sume/total_bet), nb_hands, NB_SPREADS, 100*NB_SPREADS/nb_hands))
+        logger.info("Game {} winnings: {}. Overall winnings: {} (edge = {}%). {} hands. {} spreads ({}%)".format(g+1, "{0:.2f}".format(game.get_money()), "{0:.2f}".format(sume), edge_string, nb_hands, NB_SPREADS, 100*NB_SPREADS/nb_hands))
 
     """ #sigh
     moneys = sorted(moneys)
