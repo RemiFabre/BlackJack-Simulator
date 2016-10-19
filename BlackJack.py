@@ -1389,8 +1389,8 @@ class Game(object):
             
     ### type_of_map must be one of the 3 options : "hard", "soft", "pair"
     def calculate_strategy_chart_cell(self, map_of_scores, type_of_map, dealer_card_values, stat_chart) : 
+        global pool
         strategy_chart = StrategyChart(dealer_card_values)
-        pool = Pool(processes=NB_PROCESS)
         args = []
         for s in map_of_scores :
             # Creating a fake payer_hand that matches the current score
